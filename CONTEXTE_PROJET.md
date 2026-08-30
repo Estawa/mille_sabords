@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.1 (correction du service worker qui gardait indéfiniment l'ancienne version en cache).
+Dernière mise à jour : v1.2 (nombre de joueurs élargi de 1 à 10).
 
 ---
 
@@ -68,7 +68,9 @@ Sources : cartes physiques de l'utilisateur (texte officiel photographié) +
 règle complète Gigamic (site officiel, capturé en plusieurs pages).
 
 ### Déroulement général
-- 2 à 5 joueurs, un·e Capitaine note les scores.
+- Officiellement 2 à 5 joueurs selon la règle Gigamic, mais l'utilisateur a
+  demandé une plage élargie de **1 à 10 joueurs** (v1.2) pour permettre le jeu
+  en solo (entraînement/score personnel) et les grandes tablées.
 - Révéler la carte du dessus de la pioche, la poser face visible, lancer les
   8 dés (premier lancer **toujours** à 8 dés).
 - Relance : mettre de côté les dés à garder (sans changer leur face), relancer
@@ -338,3 +340,10 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   nettoyage manuel du cache du site (une seule fois) est nécessaire : ce
   correctif évite que le problème se reproduise, il ne débloque pas
   rétroactivement une installation déjà figée sur l'ancien service worker.
+- **v1.2** : nombre de joueurs élargi de 1 à 10 (demande explicite de
+  l'utilisateur, au-delà des 2-5 joueurs de la règle officielle). Sélecteur
+  mis à jour dans l'écran de configuration (`GameApp.tsx`). Cas particulier
+  traité : avec 1 seul joueur, atteindre l'objectif déclenche la victoire
+  **immédiate** au lieu d'attendre un "dernier tour des autres joueurs" qui
+  n'existerait pas (il n'y a personne d'autre) — sans ce correctif, la
+  victoire n'aurait été actée qu'au tour suivant du même joueur.

@@ -49,4 +49,7 @@
 @keyframes burst-flash{0%{transform:translate(-50%,-50%) scale(0);opacity:1}60%{opacity:.9}100%{transform:translate(-50%,-50%) scale(9);opacity:0}}
 .confetti-piece{position:fixed;top:-20px;width:8px;height:14px;opacity:0;animation-name:confetti-fall;animation-timing-function:ease-in;animation-fill-mode:forwards;border-radius:2px;z-index:1}
 @keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(115vh) rotate(720deg);opacity:.85}}
+.advice-box{margin:12px 0;padding:14px;border-radius:14px;background:#132018;border:1px solid #2ecc7155}
+.advice-box div{padding:4px 0}
+.advice-verdict{font-weight:800;color:#7ee8a8}
 

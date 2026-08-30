@@ -24,14 +24,15 @@ const AI_PARAMS: Record<AIDifficulty, { minGroupHold: number; continueThreshold:
 };
 
 export default function GameApp() {
-  const [screen, setScreen] = useState<'home' | 'setup' | 'game' | 'rules' | 'history' | 'learn'>('home');
+  const [screen, setScreen] = useState<'home' | 'setup' | 'game' | 'rules' | 'history'>('home');
+  const [practiceMode, setPracticeMode] = useState(false);
 
   // --- Configuration de partie ---
   const [names, setNames] = useState(['Joueur 1', 'Joueur 2']);
   const [aiDifficulties, setAiDifficulties] = useState<Array<AIDifficulty | null>>([null, null]);
   const [targetChoice, setTargetChoice] = useState<'6000' | '8000' | 'autre'>('6000');
-  const [customTarget, setCustomTarget] = useState(6000);
-  const target = targetChoice === 'autre' ? customTarget : Number(targetChoice);
+  const [customTarget, setCustomTarget] = useState('');
+  const target = targetChoice === 'autre' ? (parseInt(customTarget, 10) || 6000) : Number(targetChoice);
   const [options, setOptions] = useState<OptionsConfig>({ peace: false, zombieAttack: false, shipwreck: false });
 
   // --- État de partie ---
@@ -63,6 +64,22 @@ export default function GameApp() {
   const [spinFaces, setSpinFaces] = useState<DieSymbol[]>([]);
   const spinRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (spinRef.current) clearInterval(spinRef.current); }, []);
+
+  // --- Mode Apprendre : conseil statistique par simulation (mêmes fonctions
+  // pures que le moteur réel, aucune règle réinventée à la main) ---
+  const adviceStats = useMemo(() => {
+    if (!practiceMode || !turn || turn.dice.length === 0 || rollPhase !== 'idle') return null;
+    if (!canRollAgain(turn)) return null;
+    const trials = 300;
+    let total = 0, busts = 0;
+    for (let i = 0; i < trials; i++) {
+      const rolled = performRoll(turn);
+      const res = computeScore(rolled);
+      total += res.points;
+      if (res.bust) busts++;
+    }
+    return { avgIfContinue: Math.round(total / trials), bustRate: Math.round((busts / trials) * 100) };
+  }, [practiceMode, turn, rollPhase]);
 
   // --- Joueur IA ---
   const aiRunningRef = useRef(false);
@@ -112,6 +129,23 @@ export default function GameApp() {
     setTurn(startTurn(card));
     setTurnPhase('deck');
     setFinalRound(null); setSuddenDeath(false); setGameOverWinner(null); setCelebrationDone(false);
+    setPracticeMode(false);
+    setScreen('game');
+  }
+
+  /** Jeu d'apprentissage solo : lance directement une partie à 1 joueur
+   *  humain, sans options, avec le panneau de conseils statistiques activé
+   *  pendant la table de jeu. */
+  function startPractice() {
+    const ps: Player[] = [{ id: '0', name: 'Vous', score: 0 }];
+    const freshDeck = shuffle(buildDeck({ peace: false, zombieAttack: false, shipwreck: false }));
+    const { card, deck: d, discard: disc } = drawCard(freshDeck, []);
+    setPlayers(ps); setCurrent(0);
+    setDeck(d); setDiscard(disc);
+    setTurn(startTurn(card));
+    setTurnPhase('deck');
+    setFinalRound(null); setSuddenDeath(false); setGameOverWinner(null); setCelebrationDone(false);
+    setPracticeMode(true);
     setScreen('game');
   }
 
@@ -395,7 +429,7 @@ export default function GameApp() {
       <section className="hero"><h1>🏴‍☠️ Mille Sabords</h1><p>By C. Guilhem</p><p>Jeu de dés pirate.</p></section>
       <div className="grid">
         <button onClick={() => setScreen('setup')}>🎲 Nouvelle partie</button>
-        <button onClick={() => setScreen('learn')}>🧠 Apprendre</button>
+        <button onClick={startPractice}>🧠 Apprendre</button>
         <button onClick={() => setScreen('rules')}>📖 Règles</button>
         <button onClick={() => setScreen('history')}>📚 Historique</button>
       </div>
@@ -444,7 +478,7 @@ export default function GameApp() {
         </div>
         {targetChoice === 'autre' && (
           <label>Valeur personnalisée
-            <input type="number" min="100" step="100" value={customTarget} onChange={e => setCustomTarget(Math.max(100, +e.target.value || 100))} />
+            <input type="number" placeholder="ex. 2000" value={customTarget} onChange={e => setCustomTarget(e.target.value)} />
           </label>
         )}
         <label>Cartes d'options (en plus des 29 cartes de base)</label>
@@ -496,17 +530,6 @@ export default function GameApp() {
             <button className="danger" onClick={() => setSaved(saved.filter(x => x.id !== g.id))}>🗑️ Effacer</button>
           </article>
         )) : <p>Aucune partie.</p>}
-        <button className="secondary" onClick={() => setScreen('home')}>Retour</button>
-      </Panel>
-    </main>
-  );
-
-  if (screen === 'learn') return (
-    <main className="shell">
-      <Header offline={offline} />
-      <Panel title="🧠 Mode Apprendre">
-        <p>Ce mode analysera chaque situation sans modifier les dés : probabilités d'obtenir une combinaison, risque de troisième tête de mort, gain moyen attendu et comparaison arrêt/relance.</p>
-        <div className="tip">🎯 Le conseil sera calculé à partir de la situation réellement visible, jamais à partir du futur tirage.</div>
         <button className="secondary" onClick={() => setScreen('home')}>Retour</button>
       </Panel>
     </main>
@@ -571,7 +594,7 @@ export default function GameApp() {
   return (
     <main className="shell">
       <Header offline={offline} />
-      <Panel title={`🎲 Tour de ${players[current]?.name}`}>
+      <Panel title={practiceMode ? '🧠 Jeu d\'apprentissage' : `🎲 Tour de ${players[current]?.name}`}>
         {isAITurn && <p className="warning">{AI_LABELS[activeDifficulty!]} joue son tour...</p>}
         {finalRound && <p className="warning">🏁 Dernier tour ! L'objectif de {target} points a été atteint.</p>}
         {suddenDeath && !finalRound && <p className="warning">⚔️ Le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un atteigne à nouveau {target} points — un dernier tour sera alors rejoué pour tout le monde.</p>}
@@ -637,6 +660,19 @@ export default function GameApp() {
             )}
             {preview.bust && <p className="warning">☠️ Ce tour se termine de force.</p>}
           </>
+        )}
+
+        {practiceMode && adviceStats && preview && (
+          <div className="advice-box">
+            <b>🧠 Conseil (simulation sur 300 relances)</b>
+            <div>✋ Si vous vous arrêtez maintenant : <b>{preview.points} pts</b> garantis.</div>
+            <div>🎲 Si vous relancez : <b>{adviceStats.avgIfContinue} pts</b> en moyenne, <b>{adviceStats.bustRate}%</b> de risque de perdre le tour.</div>
+            <div className="advice-verdict">
+              {adviceStats.avgIfContinue > preview.points
+                ? '👉 Statistiquement, relancer rapporte plus en moyenne.'
+                : '👉 Statistiquement, mieux vaut s\'arrêter maintenant.'}
+            </div>
+          </div>
         )}
 
         <button className="finish" disabled={!canFinish || isAITurn} onClick={() => finishTurn()}>✅ Terminer le tour</button>

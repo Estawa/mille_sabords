@@ -328,7 +328,7 @@ export default function GameApp() {
 
   const card = turn.card;
   const rollCount = diceToRollCount(turn);
-  const canRoll = canRollAgain(turn) && rollPhase !== 'spinning';
+  const canRoll = canRollAgain(turn);
   const turnEnded = turn.bust || turn.shipImmediateFailure;
   const canFinish = turn.dice.length > 0 && rollPhase === 'idle' && !(turn.onSkullIsland && !turnEnded);
   const preview = turn.dice.length > 0 && rollPhase === 'idle' ? computeScore(turn) : null;
@@ -372,7 +372,7 @@ export default function GameApp() {
           })}
         </div>
 
-        {canRoll && (
+        {(canRoll || rollPhase === 'spinning') && (
           <button onClick={onDiceAreaTap}>
             {rollPhase === 'spinning'
               ? '✋ Arrêter les dés'

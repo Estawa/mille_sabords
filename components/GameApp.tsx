@@ -199,6 +199,11 @@ export default function GameApp() {
       const order = ps.map(p => p.id);
       const startIdx = order.indexOf(activePlayer.id);
       const remainingIds = order.filter((_, idx) => idx !== startIdx);
+      if (remainingIds.length === 0) {
+        // Solo (1 joueur) : personne d'autre à faire jouer, victoire immédiate.
+        endGame(ps, updatedActive);
+        return;
+      }
       setFinalRound({ remainingIds, triggeredById: activePlayer.id });
     }
     advanceTurn(ps);
@@ -246,7 +251,7 @@ export default function GameApp() {
       <Panel title="Préparer la partie">
         <label>Nombre de joueurs
           <select value={names.length} onChange={e => { const n = +e.target.value; setNames(Array.from({ length: n }, (_, i) => names[i] || `Joueur ${i + 1}`)); }}>
-            {[2, 3, 4, 5].map(n => <option key={n}>{n}</option>)}
+            {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n}>{n}</option>)}
           </select>
         </label>
         {names.map((n, i) => (

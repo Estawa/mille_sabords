@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.0 (icône de l'application refaite en tête de mort / tibias croisés).
+Dernière mise à jour : v1.1 (correction du service worker qui gardait indéfiniment l'ancienne version en cache).
 
 ---
 
@@ -311,3 +311,30 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   Si l'icône doit être retouchée à nouveau, regénérer depuis un nouveau
   design source (SVG ou image haute résolution ≥1024×1024) et refaire les
   mêmes déclinaisons de tailles.
+- **v1.1** : correction d'un bug important repéré par l'utilisateur — après
+  un déploiement, la version précédente de l'appli restait affichée pour les
+  utilisateurs revenant sur le site (visible uniquement en navigation privée,
+  qui n'a pas de service worker). **Cause** : `public/sw.js` utilisait un nom
+  de cache fixe (`mille-sabords-v1`) jamais incrémenté, une stratégie
+  "cache d'abord" même pour la page principale, et n'appelait ni
+  `skipWaiting()` ni `clients.claim()` — un nouveau service worker restait
+  donc "en attente" indéfiniment tant que tous les onglets n'étaient pas
+  fermés, ET l'ancien cache n'était de toute façon jamais purgé. **Correctif**
+  dans `public/sw.js` :
+  - `self.skipWaiting()` à l'installation (le nouveau SW s'active sans
+    attendre la fermeture de tous les onglets) ;
+  - `self.clients.claim()` + purge des anciens caches à l'activation ;
+  - stratégie réseau-d'abord pour les requêtes de navigation (la page
+    HTML), cache uniquement en secours hors-ligne ; cache-d'abord conservé
+    pour les autres ressources (JS/CSS/images, sans risque car Next.js les
+    nomme avec un hash qui change à chaque build).
+  `app/OfflineRegister.tsx` complété pour détecter l'activation d'un nouveau
+  service worker et recharger automatiquement la page une fois.
+  ⚠️ **Important pour la suite** : la variable `CACHE` dans `public/sw.js`
+  (actuellement `'mille-sabords-v2'`) doit être incrémentée à chaque nouveau
+  déploiement qui change des fichiers pré-cachés (`/`, `/manifest.webmanifest`,
+  `/icon.svg`) — sinon ce mécanisme de purge ne se déclenche pas. Pour les
+  utilisateurs déjà bloqués sur l'ancienne version avant ce correctif, un
+  nettoyage manuel du cache du site (une seule fois) est nécessaire : ce
+  correctif évite que le problème se reproduise, il ne débloque pas
+  rétroactivement une installation déjà figée sur l'ancien service worker.

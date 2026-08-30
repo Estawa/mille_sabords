@@ -7,7 +7,7 @@ import {
   startTurn, performRoll, toggleHold, useGuardian, placeOnTreasureIsland,
   canRollAgain, computeScore,
 } from '../lib/engine';
-import { playVictoryFanfare } from '../lib/sfx';
+import { playVictoryFanfare, playConfettiLoopSound } from '../lib/sfx';
 import { APP_VERSION } from '../lib/version';
 
 type AIDifficulty = 'matelot' | 'corsaire' | 'capitaine';
@@ -44,6 +44,7 @@ export default function GameApp() {
   const [finalRound, setFinalRound] = useState<{ remainingIds: string[]; triggeredById: string } | null>(null);
   const [suddenDeath, setSuddenDeath] = useState(false); // le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un l'atteigne à nouveau, victoire immédiate alors
   const [gameOverWinner, setGameOverWinner] = useState<Player | null>(null);
+  const [celebrationDone, setCelebrationDone] = useState(false);
 
   // --- Historique et statut réseau ---
   const [saved, setSaved] = useState<SavedGame[]>([]);
@@ -110,7 +111,7 @@ export default function GameApp() {
     setDeck(d); setDiscard(disc);
     setTurn(startTurn(card));
     setTurnPhase('deck');
-    setFinalRound(null); setSuddenDeath(false); setGameOverWinner(null);
+    setFinalRound(null); setSuddenDeath(false); setGameOverWinner(null); setCelebrationDone(false);
     setScreen('game');
   }
 
@@ -379,6 +380,7 @@ export default function GameApp() {
       id: crypto.randomUUID(), date: new Date().toISOString(), target,
       winner: winner.name, winnerScore: winner.score, players: sorted,
     }]);
+    setCelebrationDone(false);
     setGameOverWinner(winner);
     setTurn(null);
   }
@@ -510,9 +512,12 @@ export default function GameApp() {
     </main>
   );
 
+  if (gameOverWinner && !celebrationDone) return (
+    <GameOverCelebration winnerName={gameOverWinner.name} onDismiss={() => setCelebrationDone(true)} />
+  );
+
   if (gameOverWinner) return (
     <main className="shell">
-      <GameOverCelebration winnerName={gameOverWinner.name} />
       <Header offline={offline} />
       <Panel title="🏆 Fin de la partie">
         <p><b>{gameOverWinner.name}</b> remporte la partie avec <b>{gameOverWinner.score}</b> points !</p>
@@ -660,39 +665,83 @@ function Rule({ t, children }: { t: string; children: React.ReactNode }) {
   return <div className="rule"><h3>{t}</h3><p>{children}</p></div>;
 }
 
-function GameOverCelebration({ winnerName }: { winnerName: string }) {
+function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; onDismiss: () => void }) {
   const [burst, setBurst] = useState(false);
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; color: string; delay: number; duration: number }>>([]);
   const played = useRef(false);
+  const nextId = useRef(0);
+
+  function addConfettiBatch(count: number) {
+    const colors = ['#d8a94c', '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#f5efe2'];
+    setConfetti(prev => {
+      const fresh = Array.from({ length: count }, () => ({
+        id: nextId.current++,
+        left: Math.random() * 100,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        delay: Math.random() * 0.3,
+        duration: 2.6 + Math.random() * 1.6,
+      }));
+      // Fenêtre glissante : évite d'accumuler indéfiniment des nœuds DOM
+      // tant que l'écran n'est pas retouché.
+      return [...prev, ...fresh].slice(-260);
+    });
+  }
 
   useEffect(() => {
     if (played.current) return;
     played.current = true;
-    playVictoryFanfare();
-    const burstTimer = setTimeout(() => setBurst(true), 1050);
-    const confettiTimer = setTimeout(() => {
-      const colors = ['#d8a94c', '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#f5efe2'];
-      setConfetti(Array.from({ length: 90 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        color: colors[i % colors.length],
-        delay: Math.random() * 0.6,
-        duration: 2.6 + Math.random() * 1.6,
-      })));
-    }, 1080);
-    return () => { clearTimeout(burstTimer); clearTimeout(confettiTimer); };
+    const IGNITE_DELAY = 900; // temps laissé au pirate pour rejoindre le canon et allumer la mèche
+
+    let burstTimer: ReturnType<typeof setTimeout> | undefined;
+    let firstConfettiTimer: ReturnType<typeof setTimeout> | undefined;
+    let confettiInterval: ReturnType<typeof setInterval> | undefined;
+    let soundInterval: ReturnType<typeof setInterval> | undefined;
+
+    const igniteTimer = setTimeout(() => {
+      playVictoryFanfare(); // boum → sifflement → explosion → 1re salve de cotillons
+      burstTimer = setTimeout(() => setBurst(true), 1050);
+      firstConfettiTimer = setTimeout(() => addConfettiBatch(90), 1080);
+      // Pluie de confettis et bruitages qui continuent sans discontinuer
+      // jusqu'à ce que l'utilisateur touche l'écran (composant démonté).
+      confettiInterval = setInterval(() => addConfettiBatch(35), 1100);
+      soundInterval = setInterval(() => playConfettiLoopSound(), 2600);
+    }, IGNITE_DELAY);
+
+    return () => {
+      clearTimeout(igniteTimer);
+      if (burstTimer) clearTimeout(burstTimer);
+      if (firstConfettiTimer) clearTimeout(firstConfettiTimer);
+      if (confettiInterval) clearInterval(confettiInterval);
+      if (soundInterval) clearInterval(soundInterval);
+    };
   }, []);
 
   return (
-    <div className="celebration">
-      <div className="cannon-rig">
-        <div className="cannon-label">🏴‍☠️ {winnerName}</div>
-        <div className="cannon-flag">💀</div>
-        <div className="cannon-barrel" />
-        <div className="cannon-wheel" />
+    <div className="celebration" onClick={onDismiss}>
+      <div className="celebration-title">
+        <div className="trophy">🏆</div>
+        <h1>{winnerName}</h1>
+        <p>remporte la partie !</p>
+        <p className="tap-hint">Touchez l'écran pour voir le classement</p>
       </div>
-      <div className="cannonball" />
-      {burst && <div className="burst" />}
+      <div className="ignite-scene">
+        <div className="pirate-figure">
+          <div className="pirate-name-tag">🏴‍☠️ {winnerName}</div>
+          <img
+            src="/cards/pirate.jpg"
+            alt={winnerName}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+        <div className="cannon-rig">
+          <span className="spark">✨</span>
+          <div className="cannon-flag">💀</div>
+          <div className="cannon-barrel" />
+          <div className="cannon-wheel" />
+          <div className="cannonball" />
+          {burst && <div className="burst" />}
+        </div>
+      </div>
       {confetti.map(c => (
         <span
           key={c.id}

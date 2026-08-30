@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.3 (orientation du canon corrigée, boulet et pirate agrandis, nom du gagnant sous le pirate).
+Dernière mise à jour : v2.4 (canon redessiné par trigonométrie directe, orientation enfin correcte et fiable).
 
 ---
 
@@ -743,3 +743,35 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   Vérifier ce point systématiquement dès qu'un élément positionné en
   `absolute`/`top:100%`/etc. semble "manquant" à l'écran alors qu'il existe
   bien dans le DOM.
+- **v2.4** : la v2.3 (rotation `+30°` via `Image.rotate()` sur un calque
+  séparé, collé par-dessus le reste du dessin) ne suffisait toujours pas —
+  l'utilisateur a signalé que l'orientation restait fausse. **Le vrai
+  problème n'était pas le signe de l'angle mais la méthode elle-même** :
+  tourner un calque puis le coller avec un décalage `(px, py)` deviné à la
+  main est fragile — le point de pivot visuel réel dépend de la taille du
+  calque après rotation (`expand=True` change les dimensions) et des
+  fractions `0.30`/`0.42` choisies au jugé, sans lien géométrique garanti
+  avec l'essieu ou le berceau. Résultat : la culasse retombait trop bas,
+  quasiment au niveau du sol, au lieu de rester élevée comme sur un vrai
+  affût.
+  **Nouvelle méthode, robuste** : le tube n'est plus tourné-et-collé, il
+  est **calculé directement par trigonométrie** à partir d'un point de
+  pivot explicite (les tourillons, placés à une hauteur choisie
+  au-dessus du berceau) : `direction = (cos θ, -sin θ)` pour une élévation
+  θ au-dessus de l'horizontale, culasse et bouche obtenues en avançant le
+  long de cette direction depuis le pivot (`pivot + direction × longueur ×
+  fraction`), tube dessiné comme un polygone entre ces deux points avec un
+  décalage perpendiculaire constant (l'épaisseur), bagues/reflet/bouche
+  placés de la même façon à des fractions choisies le long de l'axe. Plus
+  aucune valeur de positionnement "devinée" : tout découle du même calcul
+  géométrique, donc le résultat reste cohérent quels que soient l'angle ou
+  les proportions choisis par la suite.
+  **Process de validation cette fois** : l'aperçu a été montré à
+  l'utilisateur (`present_files`) et sa confirmation obtenue **avant** tout
+  remplacement de `public/cannon.png`, plutôt que de re-livrer directement
+  un énième correctif à l'aveugle. Bouche/mèche/explosion recalibrées pour
+  cette nouvelle géométrie (nouvelle détection du pixel noir de la bouche +
+  calibrage visuel Playwright par points rouges successifs, comme pour les
+  versions précédentes), puis séquence complète revérifiée en captures
+  d'écran avant livraison. Seuls `public/cannon.png` et `app/globals.css`
+  ont changé cette fois (aucune modification de `GameApp.tsx`).

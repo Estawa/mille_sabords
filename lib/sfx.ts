@@ -134,3 +134,16 @@ export function playVictoryFanfare() {
   scheduleApplause(ctx, explosionAt + 0.15, 2.3, out);
   scheduleCheerWhistles(ctx, explosionAt + 0.25, out);
 }
+
+/**
+ * Salve de cotillons plus courte, sans le canon, destinée à être rejouée en
+ * boucle tant que l'animation de fin de partie reste à l'écran (pluie de
+ * confettis continue tant que l'utilisateur n'a pas retouché l'écran).
+ */
+export function playConfettiLoopSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  scheduleApplause(ctx, now, 1.7, ctx.destination);
+  scheduleCheerWhistles(ctx, now + 0.1, ctx.destination);
+}

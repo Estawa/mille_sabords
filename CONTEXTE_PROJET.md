@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.7 (numéro de version affiché dans l'appli + animation et sons de fin de partie).
+Dernière mise à jour : v1.9 (le petit pirate qui allume le canon est de retour).
 
 ---
 
@@ -495,3 +495,76 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
      L'animation se déclenche une seule fois par partie terminée (garde
      `useRef` dans `GameOverCelebration`, utile aussi en développement où
      React StrictMode double-invoque les effets).
+- **v1.8** : l'utilisateur a signalé qu'aucune animation visuelle n'était
+  perceptible en v1.7 malgré le son qui fonctionnait. **Diagnostic effectué
+  en rendant réellement la page** (Playwright + Chromium headless, captures
+  d'écran à différents instants — voir méthode ci-dessous, réutilisable pour
+  tout futur doute visuel) : le canon existait bel et bien et s'animait
+  correctement, mais il était minuscule, relégué tout en bas de l'écran,
+  **affiché en même temps que** le panneau de résultats (superposé dessus) —
+  facile à ne pas remarquer, et ne correspondait de toute façon pas à la
+  demande initiale ("prendre toute la page"). **Refonte complète** de
+  `GameOverCelebration` dans `GameApp.tsx` :
+  - Nouvel état `celebrationDone` (réinitialisé dans `start()` et
+    `endGame()`) : tant qu'il est `false`, l'écran de fin de partie affiche
+    **uniquement** la célébration plein écran (`.celebration` n'est plus un
+    calque discret superposé, c'est tout l'écran : fond dégradé, titre du
+    vainqueur en grand, canon, confettis) — le panneau de résultats
+    (classement, bouton retour) ne s'affiche qu'une fois `celebrationDone`
+    passé à `true`.
+  - **Confettis et sons désormais continus** : `setInterval` ajoute une
+    nouvelle salve de confettis toutes les 1,1s (fenêtre glissante de 260
+    pièces maximum pour ne pas accumuler indéfiniment de nœuds DOM) et
+    rejoue une salve de cotillons (`playConfettiLoopSound()`, nouvelle
+    fonction dans `lib/sfx.ts` : applaudissements + acclamations sans le
+    canon) toutes les 2,6s, jusqu'à ce que l'utilisateur touche l'écran.
+  - **Le tap n'importe où sur l'écran** (`onClick` sur le conteneur racine
+    `.celebration`, qui n'a donc plus `pointer-events:none`) déclenche
+    `onDismiss()` → `setCelebrationDone(true)` → démontage du composant
+    (ce qui nettoie automatiquement les `setInterval`/`setTimeout` via le
+    retour du `useEffect`) → passage à l'écran de classement.
+  - Classement affiché du meilleur au dernier : c'était déjà le cas
+    (`ranking` trie par score décroissant), aucun changement nécessaire sur
+    ce point, juste vérifié.
+  ⚠️ **Méthode de vérification visuelle à retenir pour la suite** : ce
+  projet n'a pas de retour visuel direct pendant le développement (pas de
+  serveur Next.js lancé, pas de vrai téléphone sous la main). Pour tout
+  changement CSS/animation dont le rendu réel est incertain, la méthode
+  fiable est de reconstituer un fichier HTML autonome avec le vrai
+  `app/globals.css` et la même structure de balises que le composant React
+  produirait, puis de le charger avec Playwright (Chromium headless,
+  déjà installé dans cet environnement — `python3 -m playwright install
+  chromium`) et de prendre des captures d'écran à plusieurs instants
+  (`page.wait_for_timeout(...)` puis `page.screenshot(...)`). Ça aurait dû
+  être fait dès la v1.7 pour éviter cet aller-retour ; à faire par défaut
+  pour toute nouvelle animation ou mise en page non triviale.
+- **v1.9** : l'utilisateur avait bien demandé dès le départ (v1.7) "un
+  pirate avec le nom du gagnant qui vient allumer le canon" — ce détail
+  avait été perdu en simplifiant le layout lors de la refonte plein écran
+  de la v1.8 (le canon n'était resté qu'avec un emoji 💀 et un drapeau, sans
+  personnage). Réintégré, **vérifié visuellement via Playwright** (captures
+  d'écran à 0.2s/0.7s/1.2s/2.1s/3.0s) avant livraison :
+  - **Portrait du pirate** : réutilise l'illustration déjà présente dans
+    l'appli (`/cards/pirate.jpg`, la vraie carte Pirate retouchée), affichée
+    en médaillon rond (`.pirate-figure`) qui glisse depuis la gauche
+    (`@keyframes pirate-in`, 0.6s) jusqu'à côté du canon.
+  - **Étiquette avec le nom du gagnant** (`.pirate-name-tag`) directement
+    au-dessus du portrait — en plus du grand titre central déjà existant,
+    conformément à la demande explicite ("un petit pirate AVEC le nom du
+    gagnant").
+  - **Séquence resynchronisée** autour d'un nouveau délai `IGNITE_DELAY =
+    900ms` dans `GameOverCelebration` : le pirate arrive et une étincelle
+    (`.spark`, emoji ✨) clignote sur la mèche du canon (`@keyframes
+    spark-flicker`, débute à 0.6s) AVANT que le son du canon et le boulet
+    ne se déclenchent (tout ce qui suivait immédiatement le montage du
+    composant — `playVictoryFanfare()`, minuterie de l'explosion, 1re salve
+    de confettis — est maintenant imbriqué dans un `setTimeout(900ms)`).
+    Le boulet (`.cannonball`) a désormais son propre `animation-delay:.9s`
+    en CSS pour rester synchronisé.
+  - **Repositionnement technique** : le canon n'étant plus parfaitement
+    centré (le pirate prend de la place à sa gauche dans `.ignite-scene`,
+    un conteneur flex), le boulet et le flash d'explosion (`.cannonball`,
+    `.burst`) sont désormais positionnés en `absolute` **à l'intérieur de**
+    `.cannon-rig` (coordonnées locales simples) plutôt que relativement à
+    tout l'écran (`calc(50% + …)`) comme avant — plus robuste si la mise en
+    page de cette zone change encore à l'avenir.

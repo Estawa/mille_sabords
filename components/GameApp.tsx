@@ -7,6 +7,8 @@ import {
   startTurn, performRoll, toggleHold, useGuardian, placeOnTreasureIsland,
   canRollAgain, computeScore,
 } from '../lib/engine';
+import { playVictoryFanfare } from '../lib/sfx';
+import { APP_VERSION } from '../lib/version';
 
 type AIDifficulty = 'matelot' | 'corsaire' | 'capitaine';
 type Player = { id: string; name: string; score: number; difficulty?: AIDifficulty };
@@ -343,12 +345,18 @@ export default function GameApp() {
     advanceTurn(ps);
   }
 
-  /** Donne un dernier tour à tous les autres joueurs avant de valider une victoire
-   *  (sauf en solo, où il n'y a personne d'autre à faire jouer). */
+  /**
+   * Donne un dernier tour uniquement aux joueurs qui n'ont pas encore joué
+   * dans le cycle en cours (ceux placés APRÈS le vainqueur dans l'ordre de
+   * jeu). Les joueurs déjà passés avant lui ce cycle-ci ont déjà autant de
+   * tours que lui : ils n'ont pas droit à un tour supplémentaire. Si le
+   * vainqueur est le dernier à jouer ce cycle (ou en solo), tout le monde a
+   * déjà joué à égalité : la victoire est actée immédiatement.
+   */
   function startFinalRoundOrEnd(ps: Player[], winnerId: string) {
     const order = ps.map(p => p.id);
     const startIdx = order.indexOf(winnerId);
-    const remainingIds = order.filter((_, idx) => idx !== startIdx);
+    const remainingIds = order.slice(startIdx + 1);
     if (remainingIds.length === 0) {
       endGame(ps, ps.find(p => p.id === winnerId)!);
       return;
@@ -504,6 +512,7 @@ export default function GameApp() {
 
   if (gameOverWinner) return (
     <main className="shell">
+      <GameOverCelebration winnerName={gameOverWinner.name} />
       <Header offline={offline} />
       <Panel title="🏆 Fin de la partie">
         <p><b>{gameOverWinner.name}</b> remporte la partie avec <b>{gameOverWinner.score}</b> points !</p>
@@ -637,11 +646,60 @@ export default function GameApp() {
 }
 
 function Header({ offline }: { offline: boolean }) {
-  return <header>🏴‍☠️ <b>Mille Sabords By C. Guilhem</b><span className="net">{offline ? '📴 Hors ligne' : '☁️ En ligne'}</span></header>;
+  return (
+    <header>
+      🏴‍☠️ <b>Mille Sabords By C. Guilhem</b>
+      <span className="net">{offline ? '📴 Hors ligne' : '☁️ En ligne'} · v{APP_VERSION}</span>
+    </header>
+  );
 }
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="panel"><h2>{title}</h2>{children}</section>;
 }
 function Rule({ t, children }: { t: string; children: React.ReactNode }) {
   return <div className="rule"><h3>{t}</h3><p>{children}</p></div>;
+}
+
+function GameOverCelebration({ winnerName }: { winnerName: string }) {
+  const [burst, setBurst] = useState(false);
+  const [confetti, setConfetti] = useState<Array<{ id: number; left: number; color: string; delay: number; duration: number }>>([]);
+  const played = useRef(false);
+
+  useEffect(() => {
+    if (played.current) return;
+    played.current = true;
+    playVictoryFanfare();
+    const burstTimer = setTimeout(() => setBurst(true), 1050);
+    const confettiTimer = setTimeout(() => {
+      const colors = ['#d8a94c', '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#f5efe2'];
+      setConfetti(Array.from({ length: 90 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        color: colors[i % colors.length],
+        delay: Math.random() * 0.6,
+        duration: 2.6 + Math.random() * 1.6,
+      })));
+    }, 1080);
+    return () => { clearTimeout(burstTimer); clearTimeout(confettiTimer); };
+  }, []);
+
+  return (
+    <div className="celebration">
+      <div className="cannon-rig">
+        <div className="cannon-label">🏴‍☠️ {winnerName}</div>
+        <div className="cannon-flag">💀</div>
+        <div className="cannon-barrel" />
+        <div className="cannon-wheel" />
+      </div>
+      <div className="cannonball" />
+      {burst && <div className="burst" />}
+      {confetti.map(c => (
+        <span
+          key={c.id}
+          className="confetti-piece"
+          style={{ left: `${c.left}%`, background: c.color, animationDelay: `${c.delay}s`, animationDuration: `${c.duration}s` }}
+        />
+      ))}
+    </div>
+  );
 }

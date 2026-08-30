@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v0.9 (rituel de révélation de carte en début de tour).
+Dernière mise à jour : v1.0 (icône de l'application refaite en tête de mort / tibias croisés).
 
 ---
 
@@ -291,3 +291,23 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   `turnPhase` est remis à `'deck'` à chaque nouveau tour (`start()` et
   `advanceTurn()`). Aucun nouvel asset visuel requis : le dos de carte est
   en CSS pur (`.deck-stack`/`.deck-back` dans `globals.css`).
+- **v1.0** : icône de l'application refaite (demande explicite : "tête de
+  mort comme sur un bateau pirate"). L'ancienne icône (`public/icon.svg`)
+  était un simple emoji 🏴‍☠️ rendu en `<text>` SVG — peu fiable
+  (dépend des polices emoji du système) et **jamais réellement branchée**
+  nulle part (manifest.icons était vide, aucune metadata Next.js ne la
+  référençait). Remplacée par :
+  - un vrai crâne + tibias croisés dessiné en formes vectorielles
+    (`public/icon.svg`, réécrit en `<circle>`/`<rect>`/`<polygon>`/`<line>`,
+    plus fiable qu'un emoji) ;
+  - des PNG rasterisés à plusieurs tailles (`icon-192.png`, `icon-512.png`,
+    `apple-icon.png` 180×180, `favicon.ico`), générés une fois via un script
+    Python/Pillow (non conservé dans le dépôt, seul le résultat est livré) ;
+  - `public/manifest.webmanifest` : le tableau `icons` (vide avant) référence
+    maintenant les PNG (purpose `any` + `maskable`) ;
+  - `app/layout.tsx` : ajout du champ `metadata.icons` (favicon, icônes PNG,
+    apple touch icon) — absent avant, donc le favicon du navigateur n'était
+    piloté par rien de spécifique jusqu'ici.
+  Si l'icône doit être retouchée à nouveau, regénérer depuis un nouveau
+  design source (SVG ou image haute résolution ≥1024×1024) et refaire les
+  mêmes déclinaisons de tailles.

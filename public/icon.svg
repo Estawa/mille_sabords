@@ -1,1 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#10141b"/><text x="256" y="315" text-anchor="middle" font-size="260">🏴‍☠️</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="190" fill="#0a0a0c"/>
+  <g stroke="#f5efe2" stroke-linecap="round">
+    <line x1="262" y1="682" x2="762" y2="942" stroke-width="46"/>
+    <line x1="762" y1="682" x2="262" y2="942" stroke-width="46"/>
+  </g>
+  <g fill="#f5efe2">
+    <circle cx="262" cy="682" r="44"/>
+    <circle cx="762" cy="682" r="44"/>
+    <circle cx="262" cy="942" r="44"/>
+    <circle cx="762" cy="942" r="44"/>
+    <circle cx="512" cy="422" r="230"/>
+    <rect x="362" y="422" width="300" height="205" rx="60"/>
+  </g>
+  <g fill="#0a0a0c">
+    <circle cx="362" cy="422" r="62"/>
+    <circle cx="662" cy="422" r="62"/>
+    <polygon points="470,492 554,492 512,587"/>
+    <path d="M 392 622 Q 512 672 632 622" stroke="#0a0a0c" stroke-width="22" fill="none" stroke-linecap="round"/>
+    <line x1="437" y1="622" x2="437" y2="682" stroke="#0a0a0c" stroke-width="12"/>
+    <line x1="487" y1="622" x2="487" y2="682" stroke="#0a0a0c" stroke-width="12"/>
+    <line x1="537" y1="622" x2="537" y2="682" stroke="#0a0a0c" stroke-width="12"/>
+    <line x1="587" y1="622" x2="587" y2="682" stroke="#0a0a0c" stroke-width="12"/>
+  </g>
+</svg>

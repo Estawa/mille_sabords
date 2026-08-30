@@ -31,10 +31,11 @@
 .celebration-title p{margin:2px 0;opacity:.9}
 .celebration-title .tap-hint{margin-top:22px;font-size:.85rem;opacity:.65;animation:tap-hint-pulse 1.8s ease-in-out infinite}
 @keyframes tap-hint-pulse{0%,100%{opacity:.45}50%{opacity:.85}}
-.ignite-scene{position:absolute;bottom:6%;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;gap:18px;z-index:2}
-.pirate-figure{position:relative;width:56px;height:56px;border-radius:50%;overflow:hidden;border:3px solid #d8a94c;box-shadow:0 8px 20px #0008;opacity:0;transform:translateX(-190px);animation:pirate-in 3s ease-in-out forwards}
+.ignite-scene{position:absolute;bottom:12%;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;gap:18px;z-index:2}
+.pirate-wrap{position:relative;display:flex;flex-direction:column;align-items:center;opacity:0;transform:translateX(-190px);animation:pirate-in 3s ease-in-out forwards}
+.pirate-figure{width:84px;height:84px;border-radius:50%;overflow:hidden;border:3px solid #d8a94c;box-shadow:0 8px 20px #0008}
 .pirate-figure img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-.pirate-name-tag{position:absolute;top:-34px;left:50%;transform:translateX(-50%);background:#0e131aee;border:1px solid #d8a94c88;border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:800;white-space:nowrap}
+.pirate-name-tag{margin-top:8px;background:#0e131aee;border:1px solid #d8a94c88;border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:800;white-space:nowrap;text-align:center}
 @keyframes pirate-in{
   0%{opacity:0;transform:translateX(-190px) translateY(0)}
   8%{opacity:1}
@@ -46,12 +47,12 @@
 }
 .cannon-rig{position:relative;display:flex;flex-direction:column;align-items:center}
 .cannon-img{width:150px;height:auto;display:block;filter:drop-shadow(0 10px 18px #0009)}
-.spark{position:absolute;top:52px;left:57px;font-size:1.1rem;opacity:0;animation:spark-flicker .4s ease-in-out 3s forwards;z-index:3}
+.spark{position:absolute;top:100px;left:50px;font-size:1.1rem;opacity:0;animation:spark-flicker .4s ease-in-out 3s forwards;z-index:3}
 @keyframes spark-flicker{0%{opacity:0;transform:scale(.4)}40%{opacity:1;transform:scale(1.3)}100%{opacity:0;transform:scale(.8)}}
-.cannonball{position:absolute;top:100px;left:128px;width:16px;height:16px;border-radius:50%;background:#141414;box-shadow:0 0 6px #000a;opacity:0;animation:cannonball-fly 1.05s cubic-bezier(.2,.6,.3,1) 3.4s forwards;z-index:1}
-.cannonball-trail{position:absolute;left:50%;top:100%;width:6px;height:70px;background:linear-gradient(to bottom,rgba(255,238,200,.85),rgba(255,238,200,0));border-radius:3px;filter:blur(1px);transform:translateX(-50%) rotate(8deg)}
+.cannonball{position:absolute;top:84px;left:124px;width:26px;height:26px;border-radius:50%;background:#141414;box-shadow:0 0 8px #000b;opacity:0;animation:cannonball-fly 1.05s cubic-bezier(.2,.6,.3,1) 3.4s forwards;z-index:1}
+.cannonball-trail{position:absolute;left:50%;top:100%;width:9px;height:80px;background:linear-gradient(to bottom,rgba(255,238,200,.85),rgba(255,238,200,0));border-radius:4px;filter:blur(1px);transform:translateX(-50%) rotate(8deg)}
 @keyframes cannonball-fly{0%{transform:translate(0,0) scale(1);opacity:1}85%{opacity:1}100%{transform:translate(26px,-46vh) scale(.7);opacity:0}}
-.burst{position:absolute;top:calc(100px - 46vh);left:154px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,#fff8dd,#d8a94c 40%,transparent 70%);transform:translate(-50%,-50%);animation:burst-flash .7s ease-out forwards;z-index:1}
+.burst{position:absolute;top:calc(84px - 46vh);left:150px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,#fff8dd,#d8a94c 40%,transparent 70%);transform:translate(-50%,-50%);animation:burst-flash .7s ease-out forwards;z-index:1}
 @keyframes burst-flash{0%{transform:translate(-50%,-50%) scale(0);opacity:1}60%{opacity:.9}100%{transform:translate(-50%,-50%) scale(9);opacity:0}}
 .confetti-piece{position:fixed;top:-20px;width:8px;height:14px;opacity:0;animation-name:confetti-fall;animation-timing-function:ease-in;animation-fill-mode:forwards;border-radius:2px;z-index:1}
 @keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(115vh) rotate(720deg);opacity:.85}}

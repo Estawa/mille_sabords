@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.1 (sélection des dés inversée + arrivée du pirate ralentie à 3 secondes).
+Dernière mise à jour : v2.2 (nouveau canon illustré + fond bleu nuit + traînée du boulet).
 
 ---
 
@@ -664,3 +664,42 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
      **Vérifié visuellement via Playwright** (captures à 0.3s / 1.5s / 2.7s
      / 3.2s / 3.5s / 4.2s) avant livraison — méthode désormais systématique
      pour toute animation, comme convenu depuis le correctif de la v1.8.
+- **v2.2** : l'utilisateur a trouvé le canon dessiné en CSS (rectangle +
+  cercles) et l'emoji 💀 flottant peu convaincants. Plutôt que de deviner,
+  4 modèles de canon ont été **dessinés en vectoriel** (Python/Pillow —
+  formes géométriques précises : tube avec reflet métallique et bagues,
+  affût en bois, roues à rayons) et présentés à l'utilisateur en JPG pour
+  qu'il choisisse : bronze antique, noir corsaire, doré éclatant, et une
+  variante avec un vrai petit drapeau tête de mort sur hampe (au lieu de
+  l'emoji). Choix retenu : **palette du modèle doré** + **drapeau sur hampe
+  plus haute** + **fond bleu nuit plus saturé** pour trancher davantage
+  (demande explicite).
+  - Nouvel asset `public/cannon.png` : le canon complet (tube + affût +
+    roues + hampe + drapeau) en un seul PNG à fond transparent (roues
+    "creuses" également transparentes, pas juste remplies de la couleur de
+    fond d'origine — sinon un changement de fond derrière l'image aurait
+    laissé apparaître l'ancienne couleur dans les trous). Remplace les
+    anciennes classes CSS `.cannon-flag`/`.cannon-barrel`/`.cannon-wheel`/
+    `@keyframes flag-wave` (supprimées) par une seule balise
+    `<img src="/cannon.png" class="cannon-img">` dans `GameOverCelebration`.
+  - Affiché à 150px de large (canon "un peu agrandi" comme demandé) via
+    `.cannon-img` dans `globals.css`.
+  - **Repositionnement précis** de la mèche (`.spark`), du point de départ
+    du boulet (`.cannonball`) et du point d'explosion (`.burst`) pour
+    coller à la vraie bouche du canon dans ce nouveau visuel — coordonnées
+    obtenues en analysant l'image par script Python (recherche du pixel
+    quasi noir de l'ouverture du canon, en excluant la zone du drapeau) puis
+    **affinées visuellement via Playwright** (point rouge de calibrage
+    superposé à l'image, capture d'écran, ajustement, nouvelle capture)
+    avant d'appliquer les coordonnées finales dans le CSS de l'appli.
+  - **Traînée derrière le boulet** (`.cannonball-trail`, un dégradé flouté
+    en enfant du `.cannonball`) : demande explicite de l'utilisateur pour
+    mieux le distinguer du fond une fois le fond assombri. Comme c'est un
+    enfant de l'élément animé, elle suit automatiquement le boulet sans
+    logique supplémentaire.
+  - Fond de `.celebration` changé de `#1c2740→#0a0d12` à un dégradé
+    `#131b3f→#080b22` plus bleu/saturé ("bleu nuit qui tranche davantage",
+    demande explicite).
+  - **Séquence complète revérifiée visuellement de bout en bout** via
+    Playwright (8 captures, du canon au repos jusqu'à la pluie de confettis
+    établie) avant livraison.

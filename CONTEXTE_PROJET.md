@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.4 (les 3 niveaux de difficulté de l'IA — Matelot, Corsaire, Capitaine).
+Dernière mise à jour : v1.5 (fin de partie équitable : tout le monde a toujours droit à un dernier tour complet).
 
 ---
 
@@ -92,7 +92,12 @@ règle complète Gigamic (site officiel, capturé en plusieurs pages).
 - **Coffre au trésor plein** : +500 pts si on marque avec les 8 dés (aucune
   tête de mort dans la combinaison finale).
 - **Magie Pirate** : combinaison de 9 symboles identiques (carte Pièce
-  d'or/Diamant + 8 dés du même symbole) → victoire immédiate.
+  d'or/Diamant + 8 dés du même symbole) → déclenche la victoire. Règle
+  officielle Gigamic : victoire *immédiate*. **Choix délibéré de
+  l'utilisateur (v1.5), implémenté tel quel** : dans cette application, ça
+  déclenche un dernier tour pour tout le monde comme l'objectif normal,
+  plutôt qu'une victoire instantanée — voir section "Historique des
+  versions" pour le détail.
 
 ### Île de la Tête-de-Mort
 4 têtes de mort ou plus au **premier lancer** (sauf carte Bateau Pirate, voir
@@ -147,8 +152,12 @@ adversaire** (200 avec la carte Pirate en jeu). Un score négatif est possible.
 - **Mode "mort subite"** : si une pénalité fait redescendre le déclencheur
   sous l'objectif pendant ce dernier tour, le tour final est **annulé** et la
   partie continue normalement jusqu'à ce que quelqu'un atteigne à nouveau
-  l'objectif — victoire **immédiate** alors, sans redéclencher de tour final.
-  (Implémenté dans `finishTurn()` de `GameApp.tsx` via l'état `suddenDeath`.)
+  l'objectif. Règle officielle : victoire immédiate à ce moment-là. **Depuis
+  la v1.5 (demande explicite de l'utilisateur)** : un nouveau dernier tour
+  est déclenché pour tout le monde à la place, exactement comme la première
+  fois — voir "Historique des versions".
+  (Implémenté dans `finishTurn()` de `GameApp.tsx` via l'état `suddenDeath`
+  et la fonction `startFinalRoundOrEnd()`.)
 
 ## 5. Architecture technique actuelle (v0.6)
 
@@ -409,3 +418,25 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   branche générale (cartes simples) varie avec la difficulté pour l'instant.
   Cette table (`AI_PARAMS`) est le point d'entrée si l'utilisateur veut
   rééquilibrer un niveau plus tard.
+- **v1.5** : demande explicite de l'utilisateur — **choix de conception
+  délibéré qui s'écarte de la règle officielle Magie Pirate** ("vous
+  remportez immédiatement la partie"). Désormais, TOUTE condition de
+  victoire (objectif atteint normalement, Magie Pirate, ré-atteinte en mode
+  mort subite) passe par la même fonction `startFinalRoundOrEnd()` :
+  - le tour du joueur qui vient de gagner est toujours mené à son terme
+    (il l'était déjà avant, ce point n'était pas cassé, mais c'est
+    maintenant garanti par construction pour les trois cas) ;
+  - tous les autres joueurs de la table ont alors droit à un dernier tour
+    complet, exactement comme pour l'objectif normal ;
+  - seule exception : en solo (personne d'autre à la table), la victoire
+    reste immédiate puisqu'il n'y a personne à qui laisser jouer.
+  `suddenDeath` est remis à `false` dès qu'un nouveau dernier tour démarre
+  correctement (on n'est alors plus en mode "course-poursuite").
+  ⚠️ **Cas limite connu, accepté tel quel** : si un joueur réalise Magie
+  Pirate PENDANT le dernier tour déjà déclenché par quelqu'un d'autre,
+  `startFinalRoundOrEnd()` redémarre la liste des joueurs restants à partir
+  de ce nouveau déclencheur — ce qui peut redonner un tour supplémentaire à
+  des joueurs qui avaient déjà joué leur dernier tour. Ce cas est très rare
+  (Magie Pirate = 9 symboles identiques) et n'a pas été traité spécifiquement
+  pour ne pas complexifier la logique pour un événement aussi improbable ;
+  à revoir si l'utilisateur le juge gênant en pratique.

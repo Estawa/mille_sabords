@@ -1,0 +1,10 @@
+{
+  "name": "Mille Sabords By C. Guilhem",
+  "short_name": "Mille Sabords",
+  "description": "Jeu de dés pirate",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10141b",
+  "theme_color": "#10141b",
+  "icons": []
+}

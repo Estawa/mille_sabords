@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.9 (le petit pirate qui allume le canon est de retour).
+Dernière mise à jour : v2.0 (champ objectif personnalisé corrigé + mode Apprendre enfin fonctionnel).
 
 ---
 
@@ -255,8 +255,11 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
 1. Éventuellement refaire/améliorer le rendu de certaines cartes si
    l'utilisateur les juge décevantes après test en conditions réelles.
 2. Ajouter un visuel pour la carte Naufrage si une photo est fournie.
-3. Construire le moteur du mode **Apprendre** (probabilités, espérance de
-   gain, comparaison arrêt/relance) — actuellement un écran statique.
+3. **Mode Apprendre** : fonctionnel depuis la v2.0 (conseil par simulation,
+   niveau unique). Amélioration possible si demandée : les 3 niveaux d'aide
+   prévus à l'origine (Débutant/Progression/Expert, ex. cacher certains
+   chiffres pour le niveau Débutant, ou ajouter le détail des probabilités
+   exactes de combinaison pour le niveau Expert).
 4. **IA** : les 3 niveaux de difficulté (Matelot, Corsaire, Capitaine) sont
    implémentés depuis la v1.4 — voir historique des versions et `AI_PARAMS`
    dans `GameApp.tsx` pour ajuster leur comportement si besoin.
@@ -568,3 +571,33 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
     `.cannon-rig` (coordonnées locales simples) plutôt que relativement à
     tout l'écran (`calc(50% + …)`) comme avant — plus robuste si la mise en
     page de cette zone change encore à l'avenir.
+- **v2.0** : deux corrections signalées par l'utilisateur après usage réel.
+  1. **Champ "Valeur personnalisée" de l'objectif inutilisable** : l'ancien
+     `onChange` forçait `Math.max(100, +e.target.value || 100)` à **chaque
+     frappe** — dès que le champ passait par une valeur vide ou par un
+     nombre inférieur à 100 pendant la saisie (ex. en effaçant "100" pour
+     écrire "2000"), il revenait instantanément à 100, rendant impossible
+     d'effacer les chiffres préremplis. **Corrigé** : `customTarget` est
+     maintenant une simple chaîne (`useState('')`, champ vide par défaut),
+     mise à jour telle quelle à chaque frappe sans clamp ; le nombre n'est
+     interprété (`parseInt`, repli sur 6000 si vide/invalide) qu'au moment
+     de calculer `target`, jamais pendant la frappe. Vérifié visuellement
+     via Playwright (le champ accepte "2000" du premier coup).
+  2. **Onglet "Apprendre" enfin fonctionnel** : il n'affichait auparavant
+     qu'un texte statique sans effet. Il lance désormais directement un
+     **jeu d'apprentissage solo** (`startPractice()`) : partie à 1 joueur
+     humain nommé "Vous", sans cartes d'options, avec un nouveau panneau
+     `🧠 Conseil` affiché à chaque décision (dès qu'un lancer est fait et
+     qu'une relance reste possible). Le conseil n'est **pas** une formule
+     codée à la main par famille de carte : `adviceStats` (nouveau
+     `useMemo` dans `GameApp.tsx`, placé avant les `return` conditionnels
+     pour respecter les règles des Hooks React) fait tourner 300 fois
+     `performRoll()` puis `computeScore()` — les vraies fonctions pures du
+     moteur — à partir de l'état actuel du tour, et compare le score moyen
+     obtenu en relançant (avec son taux d'échec observé) au score garanti
+     si on s'arrête maintenant (`preview.points`, déjà existant). Ça reste
+     donc valide automatiquement pour toutes les cartes spéciales (Bateau
+     Pirate, La Paix, Île au Trésor, etc.) sans logique dédiée à
+     maintenir. Écran statique `screen === 'learn'` supprimé (plus
+     nécessaire, le bouton "🧠 Apprendre" de l'accueil appelle directement
+     `startPractice()`).

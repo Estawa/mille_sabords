@@ -189,33 +189,37 @@ export default function GameApp() {
   }
 
   // --- Intelligence artificielle (3 niveaux : Matelot, Corsaire, Capitaine — sans triche, mêmes jets aléatoires) ---
+  // Interaction inversée : par défaut chaque dé est CONSERVÉ (held=true).
+  // L'IA identifie les dés qu'elle veut garder, puis sélectionne pour la
+  // relance (toggleHold) tout le reste des dés actuellement disponibles.
 
-  function aiDecideHolds(t: TurnState, card: PirateCard, difficulty: AIDifficulty): { holdIndices: number[]; islandIndices: number[] } {
+  function aiDecideRerolls(t: TurnState, card: PirateCard, difficulty: AIDifficulty): { rerollIndices: number[]; islandIndices: number[] } {
     const params = AI_PARAMS[difficulty];
-    const rerollable = t.dice.map((d, i) => ({ d, i })).filter(({ d }) => !d.held && !d.cursed && !d.onTreasureIsland);
-    const isRerollable = (i: number) => rerollable.some(r => r.i === i);
+    const eligible = t.dice.map((d, i) => ({ d, i })).filter(({ d }) => d.held && !d.cursed && !d.onTreasureIsland);
+    const isEligible = (i: number) => eligible.some(e => e.i === i);
     const counts: Record<string, number[]> = {};
     t.dice.forEach((d, i) => { if (d.symbol !== 'skull') (counts[d.symbol] ||= []).push(i); });
 
-    const holdSet = new Set<number>();
+    const keepSet = new Set<number>();
     for (const [sym, idxs] of Object.entries(counts)) {
-      if (sym === 'coin' || sym === 'diamond') idxs.forEach(i => { if (isRerollable(i)) holdSet.add(i); });
-      if (idxs.length >= params.minGroupHold) idxs.forEach(i => { if (isRerollable(i)) holdSet.add(i); });
+      if (sym === 'coin' || sym === 'diamond') idxs.forEach(i => { if (isEligible(i)) keepSet.add(i); });
+      if (idxs.length >= params.minGroupHold) idxs.forEach(i => { if (isEligible(i)) keepSet.add(i); });
     }
     if (card.type === 'ship' || card.type === 'zombieAttack') {
-      (counts['sabre'] || []).forEach(i => { if (isRerollable(i)) holdSet.add(i); });
+      (counts['sabre'] || []).forEach(i => { if (isEligible(i)) keepSet.add(i); });
     }
-    if (card.type === 'peace') {
-      (counts['sabre'] || []).forEach(i => holdSet.delete(i));
-    }
+    // Carte La Paix : les sabres ne sont jamais ajoutés à keepSet ci-dessus,
+    // ils seront donc naturellement sélectionnés pour la relance ci-dessous.
 
-    const islandSet = new Set<number>();
+    const islandIndices: number[] = [];
     if (card.type === 'treasureIsland') {
-      holdSet.forEach(i => islandSet.add(i));
-      holdSet.clear();
+      // Dépose directement les bons dés (déjà conservés par défaut) sur l'île.
+      keepSet.forEach(i => islandIndices.push(i));
     }
 
-    return { holdIndices: [...holdSet], islandIndices: [...islandSet] };
+    const rerollIndices = eligible.map(e => e.i).filter(i => !keepSet.has(i));
+
+    return { rerollIndices, islandIndices };
   }
 
   function aiShouldContinue(t: TurnState, card: PirateCard, difficulty: AIDifficulty): boolean {
@@ -261,10 +265,10 @@ export default function GameApp() {
       const skullIdx = cur.dice.findIndex(d => d.symbol === 'skull');
       if (skullIdx !== -1) { cur = useGuardian(cur, skullIdx); setTurn(cur); await sleep(600); }
     }
-    const { holdIndices, islandIndices } = aiDecideHolds(cur, card, difficulty);
-    const actions: Array<{ type: 'hold' | 'island'; i: number }> = [
-      ...holdIndices.map(i => ({ type: 'hold' as const, i })),
+    const { rerollIndices, islandIndices } = aiDecideRerolls(cur, card, difficulty);
+    const actions: Array<{ type: 'reroll' | 'island'; i: number }> = [
       ...islandIndices.map(i => ({ type: 'island' as const, i })),
+      ...rerollIndices.map(i => ({ type: 'reroll' as const, i })),
     ];
     const totalMs = 5000;
     if (actions.length === 0) {
@@ -274,7 +278,7 @@ export default function GameApp() {
     const step = totalMs / actions.length;
     for (const a of actions) {
       await sleep(step);
-      cur = a.type === 'hold' ? toggleHold(cur, a.i) : placeOnTreasureIsland(cur, a.i);
+      cur = a.type === 'reroll' ? toggleHold(cur, a.i) : placeOnTreasureIsland(cur, a.i);
       setTurn(cur);
     }
     return cur;
@@ -505,7 +509,7 @@ export default function GameApp() {
       <Panel title="📖 Règles intégrées">
         <Rule t="But">Atteindre l'objectif choisi (6000, 8000 ou une valeur libre).</Rule>
         <Rule t="Tour">Révéler une carte puis lancer les 8 dés. Le joueur choisit de s'arrêter ou de relancer.</Rule>
-        <Rule t="Relances">Un nouveau lancer nécessite au moins 2 dés (1 seul avec Attaque de Zombies). Une tête de mort est maudite et ne peut plus être relancée, sauf avec la Gardienne.</Rule>
+        <Rule t="Relances">Touchez les dés que vous voulez relancer : les autres sont conservés automatiquement. Il faut en sélectionner au moins 2 (1 seul avec Attaque de Zombies). Une tête de mort est maudite et ne peut plus être relancée, sauf avec la Gardienne.</Rule>
         <Rule t="Points">3/4/5/6/7/8 dés identiques = 100/200/500/1000/2000/4000. Chaque diamant et pièce d'or vaut 100 points supplémentaires. Utiliser les 8 dés sans aucune tête de mort rapporte +500 (Coffre au trésor plein).</Rule>
         <Rule t="Île de la Tête-de-Mort">4 têtes de mort ou plus au premier lancer envoient sur l'île (sauf carte Bateau Pirate) : aucun point pour le joueur, mais chaque tête révélée fait perdre 100 points à chaque adversaire (200 avec la carte Pirate).</Rule>
         <Rule t="Cartes de base (29)">3 Pirate, 3 Île au Trésor, 3 Pièce d'or, 3 Diamant, 3 Animaux, 3 Gardienne, 3 Tête de Mort ×1, 2 Tête de Mort ×2, 6 Bateau Pirate (2 sabres/300 pts, 3 sabres/500 pts, 4 sabres/1000 pts, 2 exemplaires chacune).</Rule>
@@ -611,12 +615,15 @@ export default function GameApp() {
           </div>
         </div>
 
+        {turn.dice.length > 0 && rollPhase === 'idle' && !turnEnded && (
+          <p className="hint">👉 Touchez les dés à relancer — les autres sont gardés automatiquement.</p>
+        )}
         <div className="dice" onClick={turn.dice.length === 0 || rollPhase === 'spinning' ? onDiceAreaTap : undefined}>
           {Array.from({ length: 8 }).map((_, i) => {
             const die = turn.dice[i];
             const symbol = displaySymbol(i);
             const classes = ['die'];
-            if (die?.held) classes.push('selected');
+            if (die && !die.held && !die.cursed && !die.onTreasureIsland) classes.push('selected');
             if (die?.cursed) classes.push('cursed');
             if (die?.onTreasureIsland) classes.push('treasure');
             if (rollPhase === 'spinning') classes.push('spinning');
@@ -642,11 +649,11 @@ export default function GameApp() {
           </button>
         )}
         {!canRoll && rollPhase === 'idle' && !turnEnded && turn.dice.length > 0 && (
-          <p className="hint">Plus assez de dés disponibles pour relancer : vous devez terminer votre tour.</p>
+          <p className="hint">Touchez au moins 2 dés à relancer (1 avec Attaque de Zombies), ou terminez votre tour.</p>
         )}
 
-        {card.type === 'treasureIsland' && turn.dice.some(d => d.held) && (
-          <button className="secondary" onClick={depositOnIsland} disabled={isAITurn}>🏝️ Déposer les dés tenus sur l'Île au Trésor</button>
+        {card.type === 'treasureIsland' && turn.dice.some(d => d.held && !d.cursed && !d.onTreasureIsland) && (
+          <button className="secondary" onClick={depositOnIsland} disabled={isAITurn}>🏝️ Déposer les dés gardés sur l'Île au Trésor</button>
         )}
         {card.type === 'guardian' && !turn.guardianUsed && (
           <p className="hint">🧙‍♀️ Touchez un dé tête de mort pour le relancer exceptionnellement.</p>
@@ -726,7 +733,7 @@ function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; on
   useEffect(() => {
     if (played.current) return;
     played.current = true;
-    const IGNITE_DELAY = 900; // temps laissé au pirate pour rejoindre le canon et allumer la mèche
+    const IGNITE_DELAY = 3400; // le pirate met ~3s à approcher tranquillement, puis allume la mèche (~0.4s)
 
     let burstTimer: ReturnType<typeof setTimeout> | undefined;
     let firstConfettiTimer: ReturnType<typeof setTimeout> | undefined;

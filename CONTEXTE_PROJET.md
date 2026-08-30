@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.2 (nouveau canon illustré + fond bleu nuit + traînée du boulet).
+Dernière mise à jour : v2.3 (orientation du canon corrigée, boulet et pirate agrandis, nom du gagnant sous le pirate).
 
 ---
 
@@ -703,3 +703,43 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   - **Séquence complète revérifiée visuellement de bout en bout** via
     Playwright (8 captures, du canon au repos jusqu'à la pluie de confettis
     établie) avant livraison.
+- **v2.3** : quatre ajustements demandés par l'utilisateur après avoir vu
+  la v2.2 en vrai.
+  1. **Sens du canon corrigé** — bug réel, pas un simple réglage : le tube
+     pointait vers le BAS à droite au lieu du ciel. Cause identifiée par un
+     test isolé (petit rectangle bicolore bleu/vert tourné avec
+     `Image.rotate()` de Pillow, capturé en image pour trancher sans
+     ambiguïté) : `angle_deg=-30` fait monter le côté GAUCHE (culasse) et
+     descendre le côté DROIT (bouche) — l'inverse de ce qu'il fallait.
+     Corrigé en `angle_deg=30` (positif) dans le script de génération, et
+     `public/cannon.png` régénéré avec la bonne orientation. Bouche, mèche
+     et point d'explosion ont dû être **recalculés et recalibrés** en
+     conséquence (nouvelle recherche du pixel noir de la bouche, nouveau
+     point rouge de calibrage visuel via Playwright) puisque la géométrie a
+     changé.
+  2. **Boulet agrandi** : 16px → 26px (`​.cannonball` dans `globals.css`),
+     repositionné pour rester centré sur la bouche du canon.
+  3. **Pirate agrandi** : portrait rond 56px → 84px (`.pirate-figure`).
+  4. **Nom du gagnant sous le pirate, qui le suit** : bug de layout
+     découvert et corrigé en le mettant en place — la balise
+     `.pirate-name-tag` était un enfant de `.pirate-figure`, qui a
+     `overflow:hidden` (nécessaire pour découper le portrait en cercle) ;
+     positionnée en dessous (`top:100%`), l'étiquette se faisait donc
+     **rogner par ce overflow:hidden** et n'apparaissait jamais à l'écran,
+     silencieusement. Corrigé en sortant l'étiquette de `.pirate-figure` :
+     nouveau conteneur englobant `.pirate-wrap` (flex colonne, sans
+     `overflow:hidden`) qui porte maintenant l'animation d'arrivée
+     (`pirate-in`) et contient à la fois `.pirate-figure` (le portrait rond)
+     et `.pirate-name-tag` juste en dessous — l'étiquette suit donc
+     naturellement le pirate puisqu'elle fait partie du même bloc animé.
+     `.ignite-scene` déplacé de `bottom:6%` à `bottom:12%` pour laisser de
+     la place à cette étiquette supplémentaire sans qu'elle sorte de
+     l'écran (`.celebration` a lui aussi un `overflow:hidden`, pour les
+     confettis).
+  ⚠️ **Leçon retenue** (déjà notée en v1.8, reconfirmée ici) : un
+  `overflow:hidden` posé sur un parent pour une raison (ici : forme
+  circulaire du portrait) peut silencieusement rogner un enfant positionné
+  en dehors de ses limites pour une tout autre raison (ici : l'étiquette).
+  Vérifier ce point systématiquement dès qu'un élément positionné en
+  `absolute`/`top:100%`/etc. semble "manquant" à l'écran alors qu'il existe
+  bien dans le DOM.

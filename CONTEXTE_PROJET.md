@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.4 (canon redessiné par trigonométrie directe, orientation enfin correcte et fiable).
+Dernière mise à jour : v2.5 (les champs de nom de joueur se remplacent directement, sans effacer).
 
 ---
 
@@ -775,3 +775,16 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   versions précédentes), puis séquence complète revérifiée en captures
   d'écran avant livraison. Seuls `public/cannon.png` et `app/globals.css`
   ont changé cette fois (aucune modification de `GameApp.tsx`).
+- **v2.5** : même famille de problème que le champ "Valeur personnalisée"
+  corrigé en v2.0, mais cette fois sur les champs "Nom du joueur" de
+  l'écran de configuration — l'utilisateur devait effacer manuellement
+  "Joueur 1"/"Joueur 2" avant de taper son propre nom. Contrairement au
+  champ objectif (qui avait un vrai bug de clamp forçant une valeur), ici
+  le champ a juste besoin de garder une valeur par défaut à tout moment
+  (impossible de le laisser vide, `start()` s'appuie sur ce texte comme
+  repli si l'utilisateur ne tape rien). Solution différente donc :
+  `onFocus={e => e.target.select()}` sur l'`<input>` — toucher le champ
+  sélectionne tout son contenu, donc la première touche tapée remplace
+  directement le texte pré-rempli, sans étape d'effacement. Vérifié par un
+  test Playwright dédié (focus + frappe simulée + lecture de la valeur
+  finale du champ) avant livraison.

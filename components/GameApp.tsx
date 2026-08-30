@@ -456,7 +456,12 @@ export default function GameApp() {
         {names.map((n, i) => (
           <label key={i}>Nom du joueur {i + 1}
             <div className="actions">
-              <input value={n} onChange={e => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} style={{ flex: 1 }} />
+              <input
+                value={n}
+                onChange={e => setNames(names.map((x, j) => (j === i ? e.target.value : x)))}
+                onFocus={e => e.target.select()}
+                style={{ flex: 1 }}
+              />
               <select
                 value={aiDifficulties[i] ?? 'human'}
                 onChange={e => {

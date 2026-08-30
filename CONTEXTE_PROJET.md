@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.5 (fin de partie équitable : tout le monde a toujours droit à un dernier tour complet).
+Dernière mise à jour : v1.7 (numéro de version affiché dans l'appli + animation et sons de fin de partie).
 
 ---
 
@@ -440,3 +440,58 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   (Magie Pirate = 9 symboles identiques) et n'a pas été traité spécifiquement
   pour ne pas complexifier la logique pour un événement aussi improbable ;
   à revoir si l'utilisateur le juge gênant en pratique.
+- **v1.6** : correction d'un vrai bug de fairness signalé par l'utilisateur
+  après une partie réelle (2 joueurs, l'objectif atteint par le 2e joueur —
+  Isa — sur son propre tour, qui est le DERNIER tour du cycle ; le 1er
+  joueur a pourtant eu droit à un tour supplémentaire alors qu'il avait déjà
+  joué autant de tours qu'elle). **Cause** : `startFinalRoundOrEnd()`
+  (introduite en v1.5) accordait un tour de plus à *tous les autres joueurs*
+  sans regarder si certains avaient déjà joué leur tour de ce cycle-ci —
+  dans un jeu à 2, si le second joueur déclenche la victoire, le premier a
+  déjà joué à égalité et ne devrait recevoir aucun tour bonus. **Correctif** :
+  `remainingIds` ne contient plus que les joueurs placés APRÈS le
+  déclencheur dans l'ordre de jeu du cycle en cours (`order.slice(startIdx +
+  1)` au lieu d'un filtre excluant seulement son propre id). Concrètement :
+  - si le déclencheur est le premier à jouer du cycle → tous les autres
+    joueurs ont encore droit à un tour (comportement inchangé pour ce cas) ;
+  - si le déclencheur est au milieu → seuls les joueurs après lui ce
+    cycle-ci ont droit à un tour (ceux déjà passés avant lui sont déjà à
+    égalité, donc exclus) ;
+  - si le déclencheur est le DERNIER à jouer du cycle (le cas signalé par
+    l'utilisateur) → `remainingIds` est vide, victoire actée immédiatement,
+    exactement comme le cas solo.
+  Cette correction s'applique uniformément aux trois façons de déclencher une
+  victoire (objectif normal, Magie Pirate, mort subite), puisque les trois
+  passent par `startFinalRoundOrEnd()`.
+- **v1.7** : deux ajouts demandés par l'utilisateur.
+  1. **Numéro de version affiché** (`lib/version.ts`, constante
+     `APP_VERSION`) : visible dans le `Header` sur tous les écrans (à côté
+     du statut en ligne/hors ligne), ex. "☁️ En ligne · v1.7". **Cette
+     constante DOIT être incrémentée à chaque nouvelle livraison** — c'est
+     tout l'intérêt de la demande (vérifier facilement qu'une mise à jour a
+     bien été déployée, en particulier après les soucis de cache du service
+     worker corrigés en v1.1).
+  2. **Animation + sons de fin de partie** (`GameOverCelebration` dans
+     `GameApp.tsx`, effets sonores dans `lib/sfx.ts`) : un canon tire un
+     boulet qui monte et explose en confettis sur toute la page, avec le nom
+     du vainqueur affiché au-dessus du canon. Séquence : boum du tir → boulet
+     qui monte avec sifflement (CSS `cannonball-fly`) → explosion (flash
+     `burst`) → ~90 confettis colorés tombent sur toute la largeur de l'écran
+     (`confetti-fall`, générés dynamiquement en JS, couleurs/délais/durées
+     aléatoires par pièce).
+     ⚠️ **Important** : aucun fichier audio réel n'est utilisé. Faute
+     d'accès réseau pour en récupérer, tous les sons (boum, sifflement,
+     explosion, applaudissements/acclamations/sifflet des cotillons) sont
+     **synthétisés en direct via la Web Audio API** (oscillateurs +
+     bruit blanc filtré, voir `lib/sfx.ts` → `playVictoryFanfare()`). C'est
+     donc volontairement approximatif — en particulier les
+     applaudissements/acclamations, qu'une synthèse ne peut pas imiter aussi
+     bien qu'un vrai enregistrement. **Si l'utilisateur fournit un jour de
+     vrais fichiers audio** (ex. `public/sfx/boom.mp3`,
+     `sifflement.mp3`, `explosion.mp3`, `cotillons.mp3`), remplacer le corps
+     de `playVictoryFanfare()` par de simples `new Audio('/sfx/...').play()`
+     programmés aux mêmes instants (0s / 0.1s / ~1.05s / ~1.2s) — ce sera
+     bien plus convaincant que la synthèse actuelle.
+     L'animation se déclenche une seule fois par partie terminée (garde
+     `useRef` dans `GameOverCelebration`, utile aussi en développement où
+     React StrictMode double-invoque les effets).

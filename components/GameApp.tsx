@@ -778,10 +778,8 @@ function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; on
         </div>
         <div className="cannon-rig">
           <span className="spark">✨</span>
-          <div className="cannon-flag">💀</div>
-          <div className="cannon-barrel" />
-          <div className="cannon-wheel" />
-          <div className="cannonball" />
+          <img src="/cannon.png" alt="" className="cannon-img" />
+          <div className="cannonball"><span className="cannonball-trail" /></div>
           {burst && <div className="burst" />}
         </div>
       </div>

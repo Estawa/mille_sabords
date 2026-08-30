@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v0.8 (correction d'un bug de build bloquant le déploiement Vercel).
+Dernière mise à jour : v0.9 (rituel de révélation de carte en début de tour).
 
 ---
 
@@ -279,3 +279,15 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   dés" ne pouvait en réalité jamais s'afficher pendant l'animation de lancer.
   Corrigé en simplifiant `canRoll = canRollAgain(turn)` et en affichant le
   bouton dès que `canRoll || rollPhase === 'spinning'`.
+- **v0.9** : ajout du rituel de révélation en début de tour, demandé par
+  l'utilisateur. Chaque tour passe désormais par 3 phases gérées par l'état
+  `turnPhase` (`'deck' | 'card' | 'playing'`) dans `GameApp.tsx` :
+  1. `deck` — paquet retourné plein écran avec le nom du joueur ; un tap
+     passe à la phase suivante.
+  2. `card` — la carte piochée se révèle en grand avec un descriptif
+     succinct de son effet (fonction `cardDescription()`, à mettre à jour si
+     une règle de carte change) ; un tap passe à la table de jeu.
+  3. `playing` — l'écran de jeu habituel (dés, carte en miniature, actions).
+  `turnPhase` est remis à `'deck'` à chaque nouveau tour (`start()` et
+  `advanceTurn()`). Aucun nouvel asset visuel requis : le dos de carte est
+  en CSS pur (`.deck-stack`/`.deck-back` dans `globals.css`).

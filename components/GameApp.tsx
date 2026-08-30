@@ -28,6 +28,7 @@ export default function GameApp() {
   const [deck, setDeck] = useState<PirateCard[]>([]);
   const [discard, setDiscard] = useState<PirateCard[]>([]);
   const [turn, setTurn] = useState<TurnState | null>(null);
+  const [turnPhase, setTurnPhase] = useState<'deck' | 'card' | 'playing'>('deck'); // rituel de révélation en début de tour
   const [finalRound, setFinalRound] = useState<{ remainingIds: string[]; triggeredById: string } | null>(null);
   const [suddenDeath, setSuddenDeath] = useState(false); // le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un l'atteigne à nouveau, victoire immédiate alors
   const [gameOverWinner, setGameOverWinner] = useState<Player | null>(null);
@@ -67,6 +68,23 @@ export default function GameApp() {
     return { card, deck: d.slice(1), discard: disc };
   }
 
+  function cardDescription(card: PirateCard): string {
+    switch (card.type) {
+      case 'pirate': return 'Tous les points obtenus ce tour sont doublés. Sur l\'Île de la Tête-de-Mort, les adversaires perdent 200 pts par tête de mort au lieu de 100.';
+      case 'goldCoin': return "Le tour débute avec une pièce d'or bonus : +100 pts, en plus de sa valeur en combinaison.";
+      case 'diamondCard': return 'Le tour débute avec un diamant bonus : +100 pts, en plus de sa valeur en combinaison.';
+      case 'animals': return 'Singes et perroquets comptent comme un seul et même symbole pour former une combinaison.';
+      case 'guardian': return 'Vous pouvez relancer exceptionnellement, une fois, un dé tête de mort.';
+      case 'treasureIsland': return 'Après chaque lancer, déposez des dés sur l\'île pour les mettre à l\'abri : ils comptent même en cas de 3e tête de mort.';
+      case 'skull': return `Le tour débute avec ${card.skulls} tête${(card.skulls || 0) > 1 ? 's' : ''} de mort d'office.`;
+      case 'ship': return `Obtenez au moins ${card.sabresRequired} sabres. Succès : +${card.bonus} pts. Échec : -${card.bonus} pts. Empêche d'aller sur l'Île de la Tête-de-Mort.`;
+      case 'peace': return 'Terminez le tour sans aucun sabre : score doublé. Sinon : -500 pts par sabre obtenu.';
+      case 'zombieAttack': return 'Relancez jusqu\'à n\'obtenir que des sabres ou des têtes de mort (1 seul dé à relancer possible). 5 sabres ou plus : 1200 pts. Sinon, ces points vont aux adversaires.';
+      case 'shipwreck': return '2 lancers de dés maximum. Après le 2e lancer, diamants et pièces d\'or rapportent le double de points.';
+      default: return '';
+    }
+  }
+
   function start() {
     const ps: Player[] = names.map((n, i) => ({ id: String(i), name: n.trim() || `Joueur ${i + 1}`, score: 0 }));
     const freshDeck = shuffle(buildDeck(options));
@@ -74,6 +92,7 @@ export default function GameApp() {
     setPlayers(ps); setCurrent(0);
     setDeck(d); setDiscard(disc);
     setTurn(startTurn(card));
+    setTurnPhase('deck');
     setFinalRound(null); setSuddenDeath(false); setGameOverWinner(null);
     setScreen('game');
   }
@@ -191,6 +210,7 @@ export default function GameApp() {
     setDeck(d); setDiscard(disc);
     setCurrent(nextIndex);
     setTurn(startTurn(card));
+    setTurnPhase('deck');
   }
 
   function endGame(ps: Player[], winner: Player) {
@@ -327,6 +347,37 @@ export default function GameApp() {
   if (!turn) return null;
 
   const card = turn.card;
+
+  if (turnPhase === 'deck') return (
+    <main className="shell reveal-shell" onClick={() => setTurnPhase('card')}>
+      <div className="reveal-deck">
+        <div className="deck-stack">
+          <div className="deck-back" />
+          <div className="deck-back" />
+          <div className="deck-back deck-top">🏴‍☠️</div>
+        </div>
+        <h2>Au tour de {players[current]?.name}</h2>
+        <p className="hint">Touchez le paquet pour révéler votre carte</p>
+      </div>
+    </main>
+  );
+
+  if (turnPhase === 'card') return (
+    <main className="shell reveal-shell" onClick={() => setTurnPhase('playing')}>
+      <div className="reveal-card">
+        <img
+          src={`/cards/${card.id}.jpg`}
+          alt={card.label}
+          className="reveal-card-art"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+        <h2>{card.icon} {card.label}</h2>
+        <p>{cardDescription(card)}</p>
+        <p className="hint">Touchez la carte pour rejoindre la table de jeu</p>
+      </div>
+    </main>
+  );
+
   const rollCount = diceToRollCount(turn);
   const canRoll = canRollAgain(turn);
   const turnEnded = turn.bust || turn.shipImmediateFailure;

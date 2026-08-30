@@ -301,10 +301,14 @@ export default function GameApp() {
     }
     setPlayers(ps);
 
-    // Victoire immédiate (Magie Pirate)
+    // Toute condition de victoire (objectif normal, Magie Pirate, mort subite)
+    // laisse d'abord une dernière chance égale à tous les autres joueurs :
+    // le tour en cours est toujours mené à son terme, et personne n'est
+    // privé de son tour suivant. Seule exception : s'il n'y a personne
+    // d'autre à la table (solo), la victoire est actée tout de suite.
     if (result.magiePirate) {
-      const winner = ps.find(p => p.id === activePlayer.id)!;
-      endGame(ps, winner);
+      startFinalRoundOrEnd(ps, activePlayer.id);
+      advanceTurn(ps);
       return;
     }
 
@@ -313,7 +317,8 @@ export default function GameApp() {
       const trigger = ps.find(p => p.id === finalRound.triggeredById)!;
       if (trigger.score < target) {
         // Le déclencheur est repassé sous l'objectif : le dernier tour est annulé.
-        // La partie continue ; le prochain à atteindre l'objectif gagne immédiatement.
+        // La partie continue ; le prochain à atteindre l'objectif aura, lui
+        // aussi, droit à un dernier tour complet pour tout le monde.
         setFinalRound(null);
         setSuddenDeath(true);
         advanceTurn(ps);
@@ -332,22 +337,23 @@ export default function GameApp() {
 
     const updatedActive = ps.find(p => p.id === activePlayer.id)!;
     if (updatedActive.score >= target) {
-      if (suddenDeath) {
-        // Mort subite : victoire immédiate, sans nouveau tour final.
-        endGame(ps, updatedActive);
-        return;
-      }
-      const order = ps.map(p => p.id);
-      const startIdx = order.indexOf(activePlayer.id);
-      const remainingIds = order.filter((_, idx) => idx !== startIdx);
-      if (remainingIds.length === 0) {
-        // Solo (1 joueur) : personne d'autre à faire jouer, victoire immédiate.
-        endGame(ps, updatedActive);
-        return;
-      }
-      setFinalRound({ remainingIds, triggeredById: activePlayer.id });
+      setSuddenDeath(false);
+      startFinalRoundOrEnd(ps, activePlayer.id);
     }
     advanceTurn(ps);
+  }
+
+  /** Donne un dernier tour à tous les autres joueurs avant de valider une victoire
+   *  (sauf en solo, où il n'y a personne d'autre à faire jouer). */
+  function startFinalRoundOrEnd(ps: Player[], winnerId: string) {
+    const order = ps.map(p => p.id);
+    const startIdx = order.indexOf(winnerId);
+    const remainingIds = order.filter((_, idx) => idx !== startIdx);
+    if (remainingIds.length === 0) {
+      endGame(ps, ps.find(p => p.id === winnerId)!);
+      return;
+    }
+    setFinalRound({ remainingIds, triggeredById: winnerId });
   }
 
   function advanceTurn(ps: Player[]) {
@@ -460,7 +466,7 @@ export default function GameApp() {
         <Rule t="Île de la Tête-de-Mort">4 têtes de mort ou plus au premier lancer envoient sur l'île (sauf carte Bateau Pirate) : aucun point pour le joueur, mais chaque tête révélée fait perdre 100 points à chaque adversaire (200 avec la carte Pirate).</Rule>
         <Rule t="Cartes de base (29)">3 Pirate, 3 Île au Trésor, 3 Pièce d'or, 3 Diamant, 3 Animaux, 3 Gardienne, 3 Tête de Mort ×1, 2 Tête de Mort ×2, 6 Bateau Pirate (2 sabres/300 pts, 3 sabres/500 pts, 4 sabres/1000 pts, 2 exemplaires chacune).</Rule>
         <Rule t="Options (10)">3 Attaque de Zombies, 4 La Paix, 3 Naufrage — activables individuellement ou en bloc avant la partie.</Rule>
-        <Rule t="Magie Pirate">Réaliser une combinaison de 9 symboles identiques (carte Pièce d'or/Diamant + 8 dés) fait gagner la partie immédiatement.</Rule>
+        <Rule t="Magie Pirate">Réaliser une combinaison de 9 symboles identiques (carte Pièce d'or/Diamant + 8 dés) déclenche la victoire — comme pour l'objectif normal, tous les autres joueurs ont encore droit à un dernier tour avant que le classement final ne soit acté.</Rule>
         <Rule t="Fin">Le premier à atteindre l'objectif déclenche le dernier tour des autres joueurs. Le plus haut score final gagne.</Rule>
         <button className="secondary" onClick={() => setScreen('home')}>Retour</button>
       </Panel>
@@ -554,7 +560,7 @@ export default function GameApp() {
       <Panel title={`🎲 Tour de ${players[current]?.name}`}>
         {isAITurn && <p className="warning">{AI_LABELS[activeDifficulty!]} joue son tour...</p>}
         {finalRound && <p className="warning">🏁 Dernier tour ! L'objectif de {target} points a été atteint.</p>}
-        {suddenDeath && !finalRound && <p className="warning">⚔️ Le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un atteigne à nouveau {target} points (victoire immédiate).</p>}
+        {suddenDeath && !finalRound && <p className="warning">⚔️ Le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un atteigne à nouveau {target} points — un dernier tour sera alors rejoué pour tout le monde.</p>}
         <div className={isAITurn ? 'locked' : ''}>
         <div className="card">
           <img

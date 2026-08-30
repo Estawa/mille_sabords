@@ -8,15 +8,25 @@ import {
   canRollAgain, computeScore,
 } from '../lib/engine';
 
-type Player = { id: string; name: string; score: number };
+type AIDifficulty = 'matelot' | 'corsaire' | 'capitaine';
+type Player = { id: string; name: string; score: number; difficulty?: AIDifficulty };
 type SavedGame = { id: string; date: string; target: number; winner: string; winnerScore: number; players: Player[] };
 const HISTORY = 'mille-sabords-history-v3';
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+const AI_LABELS: Record<AIDifficulty, string> = { matelot: '🤖 Matelot', corsaire: '🤖 Corsaire', capitaine: '🤖 Capitaine' };
+const AI_PARAMS: Record<AIDifficulty, { minGroupHold: number; continueThreshold: number; maxRolls: number; skullContinueMaxRerollable: number }> = {
+  matelot: { minGroupHold: 3, continueThreshold: 400, maxRolls: 3, skullContinueMaxRerollable: 0 },
+  corsaire: { minGroupHold: 3, continueThreshold: 700, maxRolls: 4, skullContinueMaxRerollable: 2 },
+  capitaine: { minGroupHold: 2, continueThreshold: 1200, maxRolls: 5, skullContinueMaxRerollable: 3 },
+};
 
 export default function GameApp() {
   const [screen, setScreen] = useState<'home' | 'setup' | 'game' | 'rules' | 'history' | 'learn'>('home');
 
   // --- Configuration de partie ---
   const [names, setNames] = useState(['Joueur 1', 'Joueur 2']);
+  const [aiDifficulties, setAiDifficulties] = useState<Array<AIDifficulty | null>>([null, null]);
   const [targetChoice, setTargetChoice] = useState<'6000' | '8000' | 'autre'>('6000');
   const [customTarget, setCustomTarget] = useState(6000);
   const target = targetChoice === 'autre' ? customTarget : Number(targetChoice);
@@ -50,6 +60,11 @@ export default function GameApp() {
   const [spinFaces, setSpinFaces] = useState<DieSymbol[]>([]);
   const spinRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (spinRef.current) clearInterval(spinRef.current); }, []);
+
+  // --- Joueur IA ---
+  const aiRunningRef = useRef(false);
+  const activeDifficulty = players[current]?.difficulty;
+  const isAITurn = !!activeDifficulty;
 
   const ranking = useMemo(() => [...players].sort((a, b) => b.score - a.score), [players]);
 
@@ -86,7 +101,7 @@ export default function GameApp() {
   }
 
   function start() {
-    const ps: Player[] = names.map((n, i) => ({ id: String(i), name: n.trim() || `Joueur ${i + 1}`, score: 0 }));
+    const ps: Player[] = names.map((n, i) => ({ id: String(i), name: n.trim() || `Joueur ${i + 1}`, score: 0, difficulty: aiDifficulties[i] ?? undefined }));
     const freshDeck = shuffle(buildDeck(options));
     const { card, deck: d, discard: disc } = drawCard(freshDeck, []);
     setPlayers(ps); setCurrent(0);
@@ -111,10 +126,12 @@ export default function GameApp() {
     setTurn(t => (t ? performRoll(t) : t));
   }
   function onDiceAreaTap() {
+    if (isAITurn) return;
     if (rollPhase === 'idle') startSpin(); else stopSpinAndReveal();
   }
 
   function onDieTap(i: number) {
+    if (isAITurn) return;
     if (!turn || rollPhase === 'spinning') return;
     const die = turn.dice[i];
     if (!die) return;
@@ -127,11 +144,134 @@ export default function GameApp() {
   }
 
   function depositOnIsland() {
+    if (isAITurn) return;
     if (!turn) return;
     let s = turn;
     turn.dice.forEach((d, i) => { if (d.held) s = placeOnTreasureIsland(s, i); });
     setTurn(s);
   }
+
+  // --- Intelligence artificielle (3 niveaux : Matelot, Corsaire, Capitaine — sans triche, mêmes jets aléatoires) ---
+
+  function aiDecideHolds(t: TurnState, card: PirateCard, difficulty: AIDifficulty): { holdIndices: number[]; islandIndices: number[] } {
+    const params = AI_PARAMS[difficulty];
+    const rerollable = t.dice.map((d, i) => ({ d, i })).filter(({ d }) => !d.held && !d.cursed && !d.onTreasureIsland);
+    const isRerollable = (i: number) => rerollable.some(r => r.i === i);
+    const counts: Record<string, number[]> = {};
+    t.dice.forEach((d, i) => { if (d.symbol !== 'skull') (counts[d.symbol] ||= []).push(i); });
+
+    const holdSet = new Set<number>();
+    for (const [sym, idxs] of Object.entries(counts)) {
+      if (sym === 'coin' || sym === 'diamond') idxs.forEach(i => { if (isRerollable(i)) holdSet.add(i); });
+      if (idxs.length >= params.minGroupHold) idxs.forEach(i => { if (isRerollable(i)) holdSet.add(i); });
+    }
+    if (card.type === 'ship' || card.type === 'zombieAttack') {
+      (counts['sabre'] || []).forEach(i => { if (isRerollable(i)) holdSet.add(i); });
+    }
+    if (card.type === 'peace') {
+      (counts['sabre'] || []).forEach(i => holdSet.delete(i));
+    }
+
+    const islandSet = new Set<number>();
+    if (card.type === 'treasureIsland') {
+      holdSet.forEach(i => islandSet.add(i));
+      holdSet.clear();
+    }
+
+    return { holdIndices: [...holdSet], islandIndices: [...islandSet] };
+  }
+
+  function aiShouldContinue(t: TurnState, card: PirateCard, difficulty: AIDifficulty): boolean {
+    if (!canRollAgain(t)) return false;
+    const params = AI_PARAMS[difficulty];
+    const totalSkulls = t.dice.filter(d => d.symbol === 'skull').length;
+
+    if (card.type === 'ship') return t.dice.filter(d => d.symbol === 'sabre').length < (card.sabresRequired || 0);
+    if (card.type === 'peace') return t.dice.some(d => d.symbol === 'sabre');
+    if (card.type === 'zombieAttack') return t.dice.some(d => d.symbol !== 'sabre' && d.symbol !== 'skull');
+    if (card.type === 'shipwreck') return t.rollCount < 2;
+    if (t.onSkullIsland) return true;
+
+    const preview = computeScore(t).points;
+    const rerollableCount = t.dice.filter(d => !d.held && !d.cursed && !d.onTreasureIsland).length;
+
+    if (totalSkulls >= 2) {
+      // Un profil plus téméraire peut retenter sa chance si peu de dés restent
+      // en jeu (donc peu de risque d'une 3e tête de mort) et que le gain
+      // potentiel reste modeste.
+      return rerollableCount > 0 && rerollableCount <= params.skullContinueMaxRerollable && preview < params.continueThreshold;
+    }
+    return preview < params.continueThreshold && t.rollCount < params.maxRolls;
+  }
+
+  async function aiRoll(t: TurnState): Promise<TurnState> {
+    const count = t.dice.length === 0 ? 8 : t.dice.filter(d => !d.held && !d.cursed && !d.onTreasureIsland).length;
+    setSpinFaces(rollDice(count));
+    setRollPhase('spinning');
+    const interval = setInterval(() => setSpinFaces(rollDice(count)), 90);
+    await sleep(1300);
+    clearInterval(interval);
+    setRollPhase('idle');
+    const next = performRoll(t);
+    setTurn(next);
+    await sleep(700);
+    return next;
+  }
+
+  async function aiApplyHolds(t: TurnState, card: PirateCard, difficulty: AIDifficulty): Promise<TurnState> {
+    let cur = t;
+    if (card.type === 'guardian' && !cur.guardianUsed) {
+      const skullIdx = cur.dice.findIndex(d => d.symbol === 'skull');
+      if (skullIdx !== -1) { cur = useGuardian(cur, skullIdx); setTurn(cur); await sleep(600); }
+    }
+    const { holdIndices, islandIndices } = aiDecideHolds(cur, card, difficulty);
+    const actions: Array<{ type: 'hold' | 'island'; i: number }> = [
+      ...holdIndices.map(i => ({ type: 'hold' as const, i })),
+      ...islandIndices.map(i => ({ type: 'island' as const, i })),
+    ];
+    const totalMs = 5000;
+    if (actions.length === 0) {
+      await sleep(totalMs);
+      return cur;
+    }
+    const step = totalMs / actions.length;
+    for (const a of actions) {
+      await sleep(step);
+      cur = a.type === 'hold' ? toggleHold(cur, a.i) : placeOnTreasureIsland(cur, a.i);
+      setTurn(cur);
+    }
+    return cur;
+  }
+
+  async function playAITurn(card: PirateCard, difficulty: AIDifficulty) {
+    setRollPhase('idle');
+    await sleep(2000); // clic sur le dos de la carte
+    setTurnPhase('card');
+    await sleep(2000); // carte vue de face
+    setTurnPhase('playing');
+
+    let t = startTurn(card);
+    setTurn(t);
+
+    while (canRollAgain(t)) {
+      t = await aiRoll(t);                              // ~2s : (re)lancer les dés
+      t = await aiApplyHolds(t, card, difficulty);       // 5s : choix des dés à garder
+      if (!aiShouldContinue(t, card, difficulty)) break;
+    }
+
+    await sleep(1200); // petit temps de réflexion avant de valider le tour
+    finishTurn(t);
+  }
+
+  useEffect(() => {
+    if (screen !== 'game' || !turn || turnPhase !== 'deck') return;
+    const difficulty = players[current]?.difficulty;
+    if (!difficulty) return;
+    if (aiRunningRef.current) return;
+    aiRunningRef.current = true;
+    playAITurn(turn.card, difficulty).finally(() => { aiRunningRef.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, turnPhase, current, turn?.card.id]);
 
   function displaySymbol(i: number): DieSymbol | null {
     if (!turn) return null;
@@ -142,15 +282,16 @@ export default function GameApp() {
     return turn.dice[i].symbol;
   }
 
-  function finishTurn() {
-    if (!turn) return;
-    const result = computeScore(turn);
+  function finishTurn(explicitTurn?: TurnState) {
+    const t = explicitTurn ?? turn;
+    if (!t) return;
+    const result = computeScore(t);
 
     const activePlayer = players[current];
     let ps = players.map(p => (p.id === activePlayer.id ? { ...p, score: p.score + result.points } : p));
 
     if (result.adversaryPenaltyPerSkull) {
-      const penaltyTotal = result.adversaryPenaltyPerSkull * turn.skullsRevealedThisTurn;
+      const penaltyTotal = result.adversaryPenaltyPerSkull * t.skullsRevealedThisTurn;
       ps = ps.map(p => (p.id === activePlayer.id ? p : { ...p, score: p.score - penaltyTotal }));
     }
     if (result.redistributeToOthers) {
@@ -250,13 +391,31 @@ export default function GameApp() {
       <Header offline={offline} />
       <Panel title="Préparer la partie">
         <label>Nombre de joueurs
-          <select value={names.length} onChange={e => { const n = +e.target.value; setNames(Array.from({ length: n }, (_, i) => names[i] || `Joueur ${i + 1}`)); }}>
+          <select value={names.length} onChange={e => {
+            const n = +e.target.value;
+            setNames(Array.from({ length: n }, (_, i) => names[i] || `Joueur ${i + 1}`));
+            setAiDifficulties(Array.from({ length: n }, (_, i) => aiDifficulties[i] ?? null));
+          }}>
             {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n}>{n}</option>)}
           </select>
         </label>
         {names.map((n, i) => (
           <label key={i}>Nom du joueur {i + 1}
-            <input value={n} onChange={e => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} />
+            <div className="actions">
+              <input value={n} onChange={e => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} style={{ flex: 1 }} />
+              <select
+                value={aiDifficulties[i] ?? 'human'}
+                onChange={e => {
+                  const v = e.target.value === 'human' ? null : (e.target.value as AIDifficulty);
+                  setAiDifficulties(aiDifficulties.map((d, j) => (j === i ? v : d)));
+                }}
+              >
+                <option value="human">🧑 Humain</option>
+                <option value="matelot">🤖 Matelot</option>
+                <option value="corsaire">🤖 Corsaire</option>
+                <option value="capitaine">🤖 Capitaine</option>
+              </select>
+            </div>
           </label>
         ))}
         <label>Objectif de victoire</label>
@@ -354,7 +513,7 @@ export default function GameApp() {
   const card = turn.card;
 
   if (turnPhase === 'deck') return (
-    <main className="shell reveal-shell" onClick={() => setTurnPhase('card')}>
+    <main className="shell reveal-shell" onClick={isAITurn ? undefined : () => setTurnPhase('card')}>
       <div className="reveal-deck">
         <div className="deck-stack">
           <div className="deck-back" />
@@ -362,13 +521,13 @@ export default function GameApp() {
           <div className="deck-back deck-top">🏴‍☠️</div>
         </div>
         <h2>Au tour de {players[current]?.name}</h2>
-        <p className="hint">Touchez le paquet pour révéler votre carte</p>
+        <p className="hint">{isAITurn ? '🤖 L\'IA va révéler sa carte...' : 'Touchez le paquet pour révéler votre carte'}</p>
       </div>
     </main>
   );
 
   if (turnPhase === 'card') return (
-    <main className="shell reveal-shell" onClick={() => setTurnPhase('playing')}>
+    <main className="shell reveal-shell" onClick={isAITurn ? undefined : () => setTurnPhase('playing')}>
       <div className="reveal-card">
         <img
           src={`/cards/${card.id}.jpg`}
@@ -378,7 +537,7 @@ export default function GameApp() {
         />
         <h2>{card.icon} {card.label}</h2>
         <p>{cardDescription(card)}</p>
-        <p className="hint">Touchez la carte pour rejoindre la table de jeu</p>
+        <p className="hint">{isAITurn ? '🤖 L\'IA rejoint la table de jeu...' : 'Touchez la carte pour rejoindre la table de jeu'}</p>
       </div>
     </main>
   );
@@ -393,8 +552,10 @@ export default function GameApp() {
     <main className="shell">
       <Header offline={offline} />
       <Panel title={`🎲 Tour de ${players[current]?.name}`}>
+        {isAITurn && <p className="warning">{AI_LABELS[activeDifficulty!]} joue son tour...</p>}
         {finalRound && <p className="warning">🏁 Dernier tour ! L'objectif de {target} points a été atteint.</p>}
         {suddenDeath && !finalRound && <p className="warning">⚔️ Le déclencheur est repassé sous l'objectif : la partie continue jusqu'à ce que quelqu'un atteigne à nouveau {target} points (victoire immédiate).</p>}
+        <div className={isAITurn ? 'locked' : ''}>
         <div className="card">
           <img
             src={`/cards/${card.id}.jpg`}
@@ -429,7 +590,7 @@ export default function GameApp() {
         </div>
 
         {(canRoll || rollPhase === 'spinning') && (
-          <button onClick={onDiceAreaTap}>
+          <button onClick={onDiceAreaTap} disabled={isAITurn}>
             {rollPhase === 'spinning'
               ? '✋ Arrêter les dés'
               : turn.dice.length === 0
@@ -442,7 +603,7 @@ export default function GameApp() {
         )}
 
         {card.type === 'treasureIsland' && turn.dice.some(d => d.held) && (
-          <button className="secondary" onClick={depositOnIsland}>🏝️ Déposer les dés tenus sur l'Île au Trésor</button>
+          <button className="secondary" onClick={depositOnIsland} disabled={isAITurn}>🏝️ Déposer les dés tenus sur l'Île au Trésor</button>
         )}
         {card.type === 'guardian' && !turn.guardianUsed && (
           <p className="hint">🧙‍♀️ Touchez un dé tête de mort pour le relancer exceptionnellement.</p>
@@ -458,10 +619,11 @@ export default function GameApp() {
           </>
         )}
 
-        <button className="finish" disabled={!canFinish} onClick={finishTurn}>✅ Terminer le tour</button>
+        <button className="finish" disabled={!canFinish || isAITurn} onClick={() => finishTurn()}>✅ Terminer le tour</button>
+        </div>
 
         <h3>Classement provisoire</h3>
-        <ol>{ranking.map(p => <li key={p.id}>{p.name} — <b>{p.score}</b></li>)}</ol>
+        <ol>{ranking.map(p => <li key={p.id}>{p.name} {p.difficulty ? AI_LABELS[p.difficulty] : ''} — <b>{p.score}</b></li>)}</ol>
         <button className="secondary" onClick={() => setScreen('home')}>Quitter</button>
       </Panel>
     </main>

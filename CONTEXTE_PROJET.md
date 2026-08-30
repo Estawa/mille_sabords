@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.0 (champ objectif personnalisé corrigé + mode Apprendre enfin fonctionnel).
+Dernière mise à jour : v2.1 (sélection des dés inversée + arrivée du pirate ralentie à 3 secondes).
 
 ---
 
@@ -73,10 +73,15 @@ règle complète Gigamic (site officiel, capturé en plusieurs pages).
   en solo (entraînement/score personnel) et les grandes tablées.
 - Révéler la carte du dessus de la pioche, la poser face visible, lancer les
   8 dés (premier lancer **toujours** à 8 dés).
-- Relance : mettre de côté les dés à garder (sans changer leur face), relancer
-  le reste. Un nouveau lancer nécessite **au moins 2 dés** (1 seul avec la
-  carte Attaque de Zombies). Les dés tête de mort sont **maudits** : jamais
-  relançables (sauf Gardienne, une fois).
+- Relance : règle du jeu physique = mettre de côté les dés à garder (sans
+  changer leur face), relancer le reste. **Interaction choisie dans
+  l'appli (v2.1, demande explicite de l'utilisateur) : inversée** — le
+  joueur touche les dés qu'il veut RELANCER, les autres sont conservés
+  automatiquement par défaut. Le résultat final (quels dés sont relancés)
+  est rigoureusement identique, seule la façon de les désigner à l'écran
+  change. Un nouveau lancer nécessite **au moins 2 dés sélectionnés** (1 seul
+  avec la carte Attaque de Zombies). Les dés tête de mort sont **maudits** :
+  jamais relançables, donc jamais sélectionnables (sauf Gardienne, une fois).
 - **3 têtes de mort** → fin de tour forcée. Pour les cartes "simples" (Pirate,
   Pièce d'or, Diamant, Animaux, Gardienne) : 0 point, sans exception. Pour les
   cartes spéciales (Bateau Pirate, La Paix, Île au Trésor), voir leurs règles
@@ -601,3 +606,61 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
      maintenir. Écran statique `screen === 'learn'` supprimé (plus
      nécessaire, le bouton "🧠 Apprendre" de l'accueil appelle directement
      `startPractice()`).
+- **v2.1** : deux demandes de l'utilisateur.
+  1. **Sélection des dés inversée**. Auparavant : toucher un dé le
+     "gardait" (protégé de la relance), tout le reste partait
+     automatiquement en relance. Désormais : **on touche les dés qu'on veut
+     relancer**, les autres sont conservés par défaut. Changement fait au
+     niveau du **moteur** (`lib/engine.ts`), pas seulement visuel :
+     - `performRoll()` initialise maintenant chaque dé fraîchement lancé
+       avec `held: true` (conservé par défaut) au lieu de `false`, aussi
+       bien au premier lancer qu'après chaque relance suivante.
+     - `toggleHold()` et `canRollAgain()` n'ont pas changé de code — leur
+       comportement s'inverse automatiquement du simple fait que la valeur
+       de départ de `held` est inversée. `canRollAgain()` exige toujours
+       qu'au moins 2 dés (1 pour Attaque de Zombies) aient `held === false`
+       pour autoriser un nouveau lancer — ce qui correspond maintenant à
+       "au moins 2 dés sélectionnés pour la relance", exactement l'effet
+       voulu.
+     - **IA impactée et corrigée en conséquence** : l'ancienne
+       `aiDecideHolds()` (qui calculait les dés à *protéger* puis les
+       *activait* via `toggleHold`) aurait fait l'inverse de ce qu'elle
+       voulait avec le nouveau défaut. Remplacée par `aiDecideRerolls()` :
+       calcule toujours le même "keepSet" (pièces/diamants/combos formés/
+       sabres utiles selon la carte), mais retourne désormais son
+       **complément** parmi les dés actuellement éligibles
+       (`held === true`) comme dés à sélectionner pour la relance. Le reste
+       de la logique IA (`aiShouldContinue`, timing, Gardienne, Île au
+       Trésor) n'a pas eu besoin de changer : ces fonctions lisent l'état
+       des dés *après coup*, donc elles restent correctes quelle que soit
+       la convention.
+     - **Interface** : la classe CSS `.selected` (surbrillance dorée d'un
+       dé) s'applique maintenant quand `held === false` (sélectionné pour
+       relance) au lieu de `held === true`. Bouton Île au Trésor renommé
+       "Déposer les dés **gardés**" (au lieu de "tenus") et sa condition
+       d'affichage mise à jour en conséquence. Nouveau texte d'aide
+       au-dessus des dés : "👉 Touchez les dés à relancer — les autres sont
+       gardés automatiquement." Message d'erreur quand on ne peut pas
+       relancer reformulé pour ne plus induire en erreur juste après un
+       lancer ("Touchez au moins 2 dés à relancer… ou terminez votre tour"
+       au lieu de "plus assez de dés disponibles", qui était trompeur tant
+       qu'aucune sélection n'avait été faite). Règle "Relances" de l'écran
+       Règles reformulée dans le même sens.
+     - **Vérifié par exécution réelle** (script Node ciblant le JS compilé
+       du moteur) avant livraison : après un lancer, tous les dés
+       non-tête-de-mort ont `held === true` et `canRollAgain` est `false`
+       tant que rien n'est sélectionné ; après sélection de 2 dés,
+       `canRollAgain` devient `true` et seuls ces 2 dés changent de face au
+       lancer suivant.
+  2. **Arrivée du pirate ralentie à 3 secondes** (au lieu de ~0.6s), pour
+     laisser le temps aux joueurs de voir l'animation venir. Le délai
+     `IGNITE_DELAY` dans `GameOverCelebration` (`GameApp.tsx`) est passé de
+     900ms à 3400ms ; l'animation CSS `pirate-in` dure maintenant 3s avec
+     plusieurs points de passage (petit effet de démarche, translateY
+     alternée) plutôt qu'un simple fondu ; l'étincelle d'allumage
+     (`.spark`, `spark-flicker`) se déclenche à la fin de ces 3s (délai
+     CSS `3s`, durée `0.4s`) ; le boulet (`.cannonball`, `cannonball-fly`)
+     a son `animation-delay` aligné sur `3.4s` pour partir juste après.
+     **Vérifié visuellement via Playwright** (captures à 0.3s / 1.5s / 2.7s
+     / 3.2s / 3.5s / 4.2s) avant livraison — méthode désormais systématique
+     pour toute animation, comme convenu depuis le correctif de la v1.8.

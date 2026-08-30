@@ -158,7 +158,7 @@ export function rollDice(n: number): DieSymbol[] {
 
 export interface DieState {
   symbol: DieSymbol;
-  held: boolean;              // mis de côté volontairement (protégé d'une relance)
+  held: boolean;              // conservé par défaut ; passe à false quand le joueur le sélectionne pour relance
   cursed: boolean;             // tête de mort, non relançable (sauf Gardienne)
   onTreasureIsland: boolean;   // dé "sauvegardé" sur la carte Île au Trésor
 }
@@ -208,13 +208,19 @@ export function canRollAgain(state: TurnState): boolean {
  * Effectue le premier lancer (toujours 8 dés) ou un lancer suivant portant
  * uniquement sur les dés non tenus / non maudits / non posés sur l'Île au Trésor.
  */
+/**
+ * Effectue le premier lancer (toujours 8 dés) ou un lancer suivant portant
+ * uniquement sur les dés que le joueur a explicitement sélectionnés pour la
+ * relance (interaction inversée : par défaut tous les dés sont conservés ;
+ * toucher un dé le sélectionne pour la relance).
+ */
 export function performRoll(state: TurnState): TurnState {
   if (!canRollAgain(state)) return state;
 
   if (state.dice.length === 0) {
     const results = rollDice(8);
     const dice: DieState[] = results.map(symbol => ({
-      symbol, held: false, cursed: symbol === 'skull', onTreasureIsland: false,
+      symbol, held: true, cursed: symbol === 'skull', onTreasureIsland: false,
     }));
     const skulls = dice.filter(d => d.symbol === 'skull').length;
     const next: TurnState = { ...state, dice, rollCount: 1, skullsRevealedThisTurn: skulls };
@@ -240,7 +246,7 @@ export function performRoll(state: TurnState): TurnState {
     const pos = rerollIndexes.indexOf(i);
     if (pos === -1) return d;
     const symbol = rerolled[pos];
-    return { ...d, symbol, cursed: symbol === 'skull' };
+    return { ...d, symbol, cursed: symbol === 'skull', held: true };
   });
 
   const newSkulls = rerollIndexes.filter(i => dice[i].symbol === 'skull').length;
@@ -258,7 +264,8 @@ export function performRoll(state: TurnState): TurnState {
   return next;
 }
 
-/** Bascule l'état "tenu" d'un dé (protégé d'une relance). */
+/** Bascule la sélection d'un dé pour la relance (par défaut, un dé est
+ *  conservé ; le toucher le sélectionne pour être relancé). */
 export function toggleHold(state: TurnState, index: number): TurnState {
   const die = state.dice[index];
   if (!die || die.cursed || die.onTreasureIsland) return state;

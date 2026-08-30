@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v0.6 (intégration des visuels de cartes dans l'appli).
+Dernière mise à jour : v0.8 (correction d'un bug de build bloquant le déploiement Vercel).
 
 ---
 
@@ -266,5 +266,16 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
 - **v0.5** : composition exacte du paquet corrigée (39 cartes réelles),
   Bateau Pirate ramené à 3 versions réelles (2/3/4 sabres, valeurs
   300/500/1000).
-- **v0.6** : visuels de cartes intégrés dans l'interface (`public/cards/`) ;
-  ce fichier de contexte créé.
+- **v0.6** : visuels de cartes intégrés dans l'interface (`public/cards/`).
+- **v0.7** : fichier de contexte `CONTEXTE_PROJET.md` créé (ce fichier),
+  README réécrit pour pointer dessus, ancien `REGLES_SPECIFICATION.md` supprimé.
+- **v0.8** : correction d'un bug bloquant le déploiement Vercel — erreur
+  TypeScript stricte (`TS2367`, comparaison sans chevauchement) sur
+  `rollPhase === 'spinning'` dans `GameApp.tsx`. Cause : la variable `canRoll`
+  incluait `&& rollPhase !== 'spinning'`, ce qui faisait que TypeScript
+  (narrowing des conditions aliasées) déduisait que `rollPhase` ne pouvait
+  plus valoir `'spinning'` à l'intérieur du bloc `{canRoll && (...)}` —
+  révélant au passage un vrai bug logique caché : le bouton "✋ Arrêter les
+  dés" ne pouvait en réalité jamais s'afficher pendant l'animation de lancer.
+  Corrigé en simplifiant `canRoll = canRollAgain(turn)` et en affichant le
+  bouton dès que `canRoll || rollPhase === 'spinning'`.

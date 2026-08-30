@@ -1,0 +1,62 @@
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:#10141b;color:#f5efe2;font-family:system-ui,-apple-system,Segoe UI,sans-serif}body{min-height:100vh}.shell{max-width:900px;margin:auto;padding:18px}.shell header{position:sticky;top:0;z-index:2;background:#10141bee;backdrop-filter:blur(8px);padding:14px 4px;border-bottom:1px solid #ffffff22;font-size:1.05rem}.hero{text-align:center;padding:55px 10px 35px}.hero h1{font-size:clamp(2rem,8vw,4rem);margin:0}.hero p{margin:6px}.lead{opacity:.75}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}button,input,select{font:inherit}button{border:0;border-radius:14px;padding:15px 16px;background:#d8a94c;color:#16120a;font-weight:800;cursor:pointer}button:hover{filter:brightness(1.08)}button.secondary{background:#ffffff12;color:#f5efe2;border:1px solid #ffffff22}.panel{background:#171e29;border:1px solid #ffffff18;border-radius:22px;padding:22px;box-shadow:0 18px 50px #0006}.panel h2{margin-top:0}.panel label{display:grid;gap:7px;margin:14px 0;font-weight:700}.panel input,.panel select{background:#0e131a;color:#fff;border:1px solid #ffffff25;border-radius:10px;padding:12px}.actions{display:flex;gap:10px;flex-wrap:wrap}.hint,.warning,.tip{padding:12px 14px;border-radius:12px;background:#ffffff09}.warning{margin:18px 0;border-left:4px solid #d8a94c}.card{font-size:1.2rem;padding:15px;background:#0e131a;border-radius:14px}.status{opacity:.85}.dice{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.die{background:#f5efe2;border:4px solid #d7c7a2;color:#111;font-size:clamp(2.2rem,8vw,4rem);aspect-ratio:1;border-radius:18px;display:grid;place-items:center}.die.selected{transform:translateY(-5px);box-shadow:0 0 0 4px #d8a94c}.scorebox{display:flex;justify-content:space-between;align-items:center;background:#0e131a;border-radius:14px;padding:16px;margin:12px 0 16px}.scorebox b{font-size:2rem}.finish{margin-top:10px;width:100%}.rule{padding:10px 0;border-bottom:1px solid #ffffff12}.rule h3{margin-bottom:4px}.history{display:grid;gap:7px;padding:14px 0;border-bottom:1px solid #ffffff18}.history span{opacity:.75;font-size:.9rem}.danger{background:#8e3131;color:white;justify-self:start;margin-top:5px}@media(max-width:520px){.dice{grid-template-columns:repeat(4,1fr);gap:8px}.panel{padding:16px}.shell{padding:10px}}.net{float:right;font-size:.78rem;opacity:.8}.details{margin:12px 0;padding:14px;border-radius:14px;background:#0e131a}.details div{padding:4px 0;border-bottom:1px solid #ffffff0d}.details div:last-child{border:0}
+.die.cursed{background:#2a2020;color:#ff8a8a;border-color:#8e3131}
+.die.treasure{background:#3a3116;border-color:#d8a94c}
+.die.spinning{animation:spin-die .25s linear infinite}
+@keyframes spin-die{0%{transform:scale(1) rotate(0deg)}50%{transform:scale(.92) rotate(8deg)}100%{transform:scale(1) rotate(0deg)}}
+.card{display:flex;align-items:center;gap:14px}
+.card-art{width:64px;height:auto;border-radius:8px;border:2px solid #ffffff33;flex-shrink:0}
+
+/* Rituel de révélation en début de tour */
+.reveal-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;padding:0}
+.reveal-deck,.reveal-card{text-align:center;padding:24px;max-width:420px}
+.reveal-deck h2,.reveal-card h2{font-size:1.5rem;margin:18px 0 6px}
+.deck-stack{position:relative;width:180px;height:250px;margin:0 auto 10px}
+.deck-back{position:absolute;inset:0;background:linear-gradient(160deg,#1b2536,#0e131a);border:3px solid #d8a94c88;border-radius:18px;box-shadow:0 12px 30px #0008}
+.deck-stack .deck-back:nth-child(1){transform:rotate(-6deg) translate(-6px,4px)}
+.deck-stack .deck-back:nth-child(2){transform:rotate(4deg) translate(5px,2px)}
+.deck-top{display:flex;align-items:center;justify-content:center;font-size:3.5rem;transform:none;animation:deck-pulse 1.8s ease-in-out infinite}
+@keyframes deck-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.reveal-card-art{width:220px;height:auto;border-radius:14px;border:3px solid #d8a94c88;box-shadow:0 16px 40px #0008;margin-bottom:6px}
+.reveal-card p{opacity:.9;line-height:1.5}
+.locked{pointer-events:none;opacity:.82}
+
+/* Célébration de fin de partie : prise de contrôle plein écran, canon,
+   boulet, explosion, cotillons continus jusqu'au tap */
+.celebration{position:fixed;inset:0;z-index:80;overflow:hidden;cursor:pointer;
+  background:radial-gradient(circle at 50% 32%,#131b3f,#080b22 78%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+.celebration-title{position:relative;z-index:3}
+.celebration-title .trophy{font-size:4rem;filter:drop-shadow(0 10px 20px #0008)}
+.celebration-title h1{font-size:clamp(1.8rem,8vw,2.8rem);margin:8px 0 2px;color:#d8a94c;text-shadow:0 4px 16px #000a}
+.celebration-title p{margin:2px 0;opacity:.9}
+.celebration-title .tap-hint{margin-top:22px;font-size:.85rem;opacity:.65;animation:tap-hint-pulse 1.8s ease-in-out infinite}
+@keyframes tap-hint-pulse{0%,100%{opacity:.45}50%{opacity:.85}}
+.ignite-scene{position:absolute;bottom:12%;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;gap:18px;z-index:2}
+.pirate-wrap{position:relative;display:flex;flex-direction:column;align-items:center;opacity:0;transform:translateX(-190px);animation:pirate-in 3s ease-in-out forwards}
+.pirate-figure{width:84px;height:84px;border-radius:50%;overflow:hidden;border:3px solid #d8a94c;box-shadow:0 8px 20px #0008}
+.pirate-figure img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.pirate-name-tag{margin-top:8px;background:#0e131aee;border:1px solid #d8a94c88;border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:800;white-space:nowrap;text-align:center}
+@keyframes pirate-in{
+  0%{opacity:0;transform:translateX(-190px) translateY(0)}
+  8%{opacity:1}
+  25%{transform:translateX(-135px) translateY(-6px)}
+  45%{transform:translateX(-85px) translateY(0)}
+  65%{transform:translateX(-40px) translateY(-6px)}
+  85%{transform:translateX(-10px) translateY(0)}
+  100%{opacity:1;transform:translateX(0) translateY(0)}
+}
+.cannon-rig{position:relative;display:flex;flex-direction:column;align-items:center}
+.cannon-img{width:150px;height:auto;display:block;filter:drop-shadow(0 10px 18px #0009)}
+.spark{position:absolute;top:100px;left:50px;font-size:1.1rem;opacity:0;animation:spark-flicker .4s ease-in-out 3s forwards;z-index:3}
+@keyframes spark-flicker{0%{opacity:0;transform:scale(.4)}40%{opacity:1;transform:scale(1.3)}100%{opacity:0;transform:scale(.8)}}
+.cannonball{position:absolute;top:84px;left:124px;width:26px;height:26px;border-radius:50%;background:#141414;box-shadow:0 0 8px #000b;opacity:0;animation:cannonball-fly 1.05s cubic-bezier(.2,.6,.3,1) 3.4s forwards;z-index:1}
+.cannonball-trail{position:absolute;left:50%;top:100%;width:9px;height:80px;background:linear-gradient(to bottom,rgba(255,238,200,.85),rgba(255,238,200,0));border-radius:4px;filter:blur(1px);transform:translateX(-50%) rotate(8deg)}
+@keyframes cannonball-fly{0%{transform:translate(0,0) scale(1);opacity:1}85%{opacity:1}100%{transform:translate(26px,-46vh) scale(.7);opacity:0}}
+.burst{position:absolute;top:calc(84px - 46vh);left:150px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,#fff8dd,#d8a94c 40%,transparent 70%);transform:translate(-50%,-50%);animation:burst-flash .7s ease-out forwards;z-index:1}
+@keyframes burst-flash{0%{transform:translate(-50%,-50%) scale(0);opacity:1}60%{opacity:.9}100%{transform:translate(-50%,-50%) scale(9);opacity:0}}
+.confetti-piece{position:fixed;top:-20px;width:8px;height:14px;opacity:0;animation-name:confetti-fall;animation-timing-function:ease-in;animation-fill-mode:forwards;border-radius:2px;z-index:1}
+@keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(115vh) rotate(720deg);opacity:.85}}
+.advice-box{margin:12px 0;padding:14px;border-radius:14px;background:#132018;border:1px solid #2ecc7155}
+.advice-box div{padding:4px 0}
+.advice-verdict{font-weight:800;color:#7ee8a8}
+

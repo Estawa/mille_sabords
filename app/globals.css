@@ -6,3 +6,16 @@
 .card{display:flex;align-items:center;gap:14px}
 .card-art{width:64px;height:auto;border-radius:8px;border:2px solid #ffffff33;flex-shrink:0}
 
+/* Rituel de révélation en début de tour */
+.reveal-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;padding:0}
+.reveal-deck,.reveal-card{text-align:center;padding:24px;max-width:420px}
+.reveal-deck h2,.reveal-card h2{font-size:1.5rem;margin:18px 0 6px}
+.deck-stack{position:relative;width:180px;height:250px;margin:0 auto 10px}
+.deck-back{position:absolute;inset:0;background:linear-gradient(160deg,#1b2536,#0e131a);border:3px solid #d8a94c88;border-radius:18px;box-shadow:0 12px 30px #0008}
+.deck-stack .deck-back:nth-child(1){transform:rotate(-6deg) translate(-6px,4px)}
+.deck-stack .deck-back:nth-child(2){transform:rotate(4deg) translate(5px,2px)}
+.deck-top{display:flex;align-items:center;justify-content:center;font-size:3.5rem;transform:none;animation:deck-pulse 1.8s ease-in-out infinite}
+@keyframes deck-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.reveal-card-art{width:220px;height:auto;border-radius:14px;border:3px solid #d8a94c88;box-shadow:0 16px 40px #0008;margin-bottom:6px}
+.reveal-card p{opacity:.9;line-height:1.5}
+

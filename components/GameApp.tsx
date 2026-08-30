@@ -768,13 +768,15 @@ function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; on
         <p className="tap-hint">Touchez l'écran pour voir le classement</p>
       </div>
       <div className="ignite-scene">
-        <div className="pirate-figure">
+        <div className="pirate-wrap">
+          <div className="pirate-figure">
+            <img
+              src="/cards/pirate.jpg"
+              alt={winnerName}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
           <div className="pirate-name-tag">🏴‍☠️ {winnerName}</div>
-          <img
-            src="/cards/pirate.jpg"
-            alt={winnerName}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
         </div>
         <div className="cannon-rig">
           <span className="spark">✨</span>

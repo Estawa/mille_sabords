@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v1.2 (nombre de joueurs élargi de 1 à 10).
+Dernière mise à jour : v1.4 (les 3 niveaux de difficulté de l'IA — Matelot, Corsaire, Capitaine).
 
 ---
 
@@ -248,8 +248,9 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
 2. Ajouter un visuel pour la carte Naufrage si une photo est fournie.
 3. Construire le moteur du mode **Apprendre** (probabilités, espérance de
    gain, comparaison arrêt/relance) — actuellement un écran statique.
-4. Construire l'**IA sans triche** pour le mode solo (niveaux Matelot,
-   Corsaire, Capitaine) — pas encore commencé.
+4. **IA** : les 3 niveaux de difficulté (Matelot, Corsaire, Capitaine) sont
+   implémentés depuis la v1.4 — voir historique des versions et `AI_PARAMS`
+   dans `GameApp.tsx` pour ajuster leur comportement si besoin.
 5. Sauvegarde IndexedDB robuste + synchronisation cloud (actuellement
    uniquement `localStorage`, pas de file d'attente de synchro réseau).
 6. Déploiement réel sur GitHub + Vercel (pas encore fait à ce stade).
@@ -347,3 +348,64 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   **immédiate** au lieu d'attendre un "dernier tour des autres joueurs" qui
   n'existerait pas (il n'y a personne d'autre) — sans ce correctif, la
   victoire n'aurait été actée qu'au tour suivant du même joueur.
+- **v1.3** : implémentation d'un vrai joueur IA (demande explicite de
+  l'utilisateur, en correction de la v1.2 qui ne faisait que permettre 1
+  joueur humain seul sans opposant). N'importe quel joueur peut être marqué
+  "🤖 IA" dans l'écran de configuration (`Player.isAI`, bouton par ligne de
+  nom) — utile aussi bien pour du solo (1 humain + 1 IA) que pour ajouter
+  plusieurs adversaires IA. Quand c'est au tour d'un joueur IA :
+  - `playAITurn()` orchestre tout le tour en pilotant directement les
+    fonctions pures du moteur (`performRoll`, `toggleHold`,
+    `placeOnTreasureIsland`, `useGuardian`, `computeScore`), sans passer par
+    les gestionnaires de clic de l'interface — même aléatoire que pour un
+    humain, aucune triche possible.
+  - Rythme calqué sur la demande : 2s sur le paquet retourné, 2s sur la
+    carte face visible, ~2s par lancer/relance (`aiRoll`, incluant
+    l'animation de dés qui tournent réutilisée telle quelle), 5s au total
+    pour choisir les dés à garder (`aiApplyHolds`, réparties entre les
+    différentes actions de sélection), puis une courte pause avant de
+    valider le tour (`finishTurn`).
+  - Stratégie de décision (`aiDecideHolds` / `aiShouldContinue`) : niveau de
+    base unique pour l'instant (pas encore les 3 paliers Matelot/Corsaire/
+    Capitaine prévus dans la feuille de route) — garde toujours pièces/
+    diamants et combinaisons déjà formées ; logique dédiée par carte
+    spéciale (Bateau Pirate : sécurise les sabres déjà obtenus et continue
+    tant que l'objectif n'est pas atteint ; La Paix : relance activement
+    tout sabre restant ; Attaque de Zombies : pousse vers 5+ sabres ;
+    Naufrage : utilise systématiquement le 2e lancer ; Île au Trésor :
+    dépose les meilleurs dés au lieu de les garder simplement ; Gardienne :
+    utilisée dès qu'une tête de mort apparaît) ; sinon prudence dès 2 têtes
+    de mort, sinon tente sa chance 1 à 2 fois de plus si le score en cours
+    reste modeste (<400 pts).
+  - `finishTurn()` accepte désormais un `TurnState` explicite en paramètre
+    optionnel (`finishTurn(explicitTurn?)`) pour que l'IA puisse lui passer
+    directement son état final sans dépendre du timing de mise à jour du
+    state React. Le bouton humain appelle toujours `finishTurn()` sans
+    argument (attention à ne jamais faire `onClick={finishTurn}` tel quel :
+    l'événement de clic serait alors passé comme `explicitTurn`).
+  - Pendant un tour IA, toute la zone de jeu est visuellement verrouillée
+    (classe CSS `.locked`, `pointer-events:none`) et les gestionnaires de
+    clic humains (`onDiceAreaTap`, `onDieTap`, `depositOnIsland`) sont
+    court-circuités par un garde `isAITurn` en tête de fonction, pour éviter
+    toute interférence pendant que le script joue.
+  - Prochaine étape logique si demandée : décliner cette IA unique en trois
+    niveaux de difficulté (Matelot/Corsaire/Capitaine) comme prévu dans la
+    feuille de route, en faisant varier `aiShouldContinue`/`aiDecideHolds`
+    (ex. Capitaine plus agressif sur le nombre de relances tentées).
+- **v1.4** : les 3 niveaux de difficulté demandés sont implémentés.
+  `Player.difficulty?: 'matelot' | 'corsaire' | 'capitaine'` remplace le
+  simple booléen `isAI` de la v1.3 (un joueur sans `difficulty` est humain).
+  Sélecteur dédié par joueur dans l'écran de configuration (Humain/Matelot/
+  Corsaire/Capitaine). Les trois niveaux partagent exactement le même moteur
+  (`aiDecideHolds`/`aiShouldContinue`/`playAITurn`), seuls les paramètres de
+  risque changent (`AI_PARAMS`) :
+  | Niveau | Sécurise dès un groupe de… | Continue si score <… | Relances max (cas général) | Retente sa chance à 2 têtes de mort si… |
+  |---|---|---|---|---|
+  | Matelot | 3 dés identiques | 400 pts | 3 | jamais |
+  | Corsaire | 3 dés identiques | 700 pts | 4 | ≤2 dés encore en jeu |
+  | Capitaine | 2 dés identiques (plus opportuniste) | 1200 pts | 5 | ≤3 dés encore en jeu |
+  Les cartes à objectif strict (Bateau Pirate, La Paix, Attaque de Zombies,
+  Naufrage) gardent la même logique dédiée quel que soit le niveau — seule la
+  branche générale (cartes simples) varie avec la difficulté pour l'instant.
+  Cette table (`AI_PARAMS`) est le point d'entrée si l'utilisateur veut
+  rééquilibrer un niveau plus tard.

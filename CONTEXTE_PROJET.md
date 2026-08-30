@@ -5,7 +5,7 @@
 > moteur, interface, assets). Ne pas le laisser devenir obsolète : une info
 > fausse ici est pire que pas d'info du tout.
 
-Dernière mise à jour : v2.5 (les champs de nom de joueur se remplacent directement, sans effacer).
+Dernière mise à jour : v3.0 (livraison complète et consolidée, après un épisode de confusion sur les uploads GitHub — voir note ci-dessous).
 
 ---
 
@@ -788,3 +788,46 @@ Le nom de fichier attendu par l'interface est **`${card.id}.jpg`** — les
   directement le texte pré-rempli, sans étape d'effacement. Vérifié par un
   test Playwright dédié (focus + frappe simulée + lecture de la valeur
   finale du champ) avant livraison.
+- **v2.6** (jamais correctement livrée à l'utilisateur — voir v3.0) :
+  réécriture de `public/sw.js` en stratégie **réseau d'abord pour tout**
+  (page, JS, CSS, images), plus seulement pour la page de navigation comme
+  en v1.1. Cause : les images statiques (`cannon.png`, cartes) restaient
+  bloquées sur d'anciennes versions en cache malgré des mises à jour
+  côté serveur, car l'incrément manuel de `CACHE` dans `sw.js` (mécanisme
+  mis en place en v1.1) n'avait pas été refait à chaque déploiement suivant
+  — un oubli récurrent, donc un mécanisme trop fragile pour être fiable à
+  long terme. Le réseau-d'abord supprime cette dépendance à la mémoire :
+  tant que l'utilisateur est en ligne, il voit toujours la dernière version
+  réellement déployée.
+- **v3.0** : livraison de rattrapage complète après un épisode de confusion
+  sur plusieurs tours d'échange avec l'utilisateur, qu'il vaut la peine de
+  documenter pour ne pas reproduire l'erreur. **Ce qui s'est mal passé** :
+  à partir de la v2.4, plusieurs livraisons successives (v2.5, v2.6) n'ont
+  communiqué qu'une liste **partielle** des fichiers modifiés à
+  l'utilisateur (ex. "seul `GameApp.tsx` a changé"), alors que
+  `lib/version.ts` changeait systématiquement aussi (incrément du numéro de
+  version affiché) sans être mentionné dans la liste à uploader sur GitHub
+  (méthode "Add file > Upload files", à la main, fichier par fichier). Le
+  fichier `lib/version.ts` réellement déployé se retrouvait donc à la
+  traîne par rapport aux autres fichiers, ce qui rendait le numéro de
+  version affiché dans l'appli **incohérent avec le contenu réel déployé**
+  — cassant justement l'outil de diagnostic (le numéro de version) que
+  cette fonctionnalité était censée fournir. Plusieurs allers-retours ont
+  été nécessaires pour identifier que ce n'était ni un problème de cache
+  navigateur (déjà écarté : reproduit en navigation privée), ni un
+  problème côté Vercel (déploiements bien verts), mais un problème
+  d'**uploads GitHub partiels/désynchronisés**, provoqué par une
+  communication incomplète de la part de l'assistant.
+  **Contenu réel de la v3.0** : correspond exactement à la v2.6 sur le
+  fond (service worker réseau-d'abord) + l'ajout d'un paramètre de
+  version sur les URLs d'images (`?v=${APP_VERSION}` sur `/cannon.png`,
+  `/cards/pirate.jpg` et `/cards/${card.id}.jpg` dans `GameApp.tsx`) pour
+  parer, en complément du service worker, à un éventuel cache réseau/CDN
+  côté hébergeur (Vercel) qui ne dépendrait pas du service worker.
+  ⚠️ **Règle à suivre impérativement pour toute livraison future** :
+  toujours donner la liste **complète et exhaustive** de tous les fichiers
+  modifiés, sans exception, y compris les fichiers "de routine" comme
+  `lib/version.ts` qui changent à chaque version même quand la demande de
+  l'utilisateur ne les concerne pas directement. Ne jamais dire "un seul
+  fichier a changé" sans avoir vérifié very précisément la liste réelle des
+  fichiers touchés dans cette session de travail.

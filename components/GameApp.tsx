@@ -582,7 +582,7 @@ export default function GameApp() {
     <main className="shell reveal-shell" onClick={isAITurn ? undefined : () => setTurnPhase('playing')}>
       <div className="reveal-card">
         <img
-          src={`/cards/${card.id}.jpg`}
+          src={`/cards/${card.id}.jpg?v=${APP_VERSION}`}
           alt={card.label}
           className="reveal-card-art"
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -610,7 +610,7 @@ export default function GameApp() {
         <div className={isAITurn ? 'locked' : ''}>
         <div className="card">
           <img
-            src={`/cards/${card.id}.jpg`}
+            src={`/cards/${card.id}.jpg?v=${APP_VERSION}`}
             alt={card.label}
             className="card-art"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -776,7 +776,7 @@ function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; on
         <div className="pirate-wrap">
           <div className="pirate-figure">
             <img
-              src="/cards/pirate.jpg"
+              src={`/cards/pirate.jpg?v=${APP_VERSION}`}
               alt={winnerName}
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
@@ -785,7 +785,7 @@ function GameOverCelebration({ winnerName, onDismiss }: { winnerName: string; on
         </div>
         <div className="cannon-rig">
           <span className="spark">✨</span>
-          <img src="/cannon.png" alt="" className="cannon-img" />
+          <img src={`/cannon.png?v=${APP_VERSION}`} alt="" className="cannon-img" />
           <div className="cannonball"><span className="cannonball-trail" /></div>
           {burst && <div className="burst" />}
         </div>
